@@ -37,10 +37,10 @@ do
 
   if [ -n "$writeConf" ]
   then
-    echo "#${module}" >> "${conf}"
-    cat ${moduleBasedir}/${module}/configVars >> "${conf}"
-    echo "" >> "${conf}" # spacer
-    chown root:root $conf ; chmod 600 $conf
+    echo "#${module}" | $SUDO tee -a "${conf}" > /dev/null
+    cat ${moduleBasedir}/${module}/configVars | sudo tee -a "${conf}" > /dev/null
+    echo "" | $SUDO tee -a "${conf}" # spacer
+    $SUDO chown root:root $conf ; $SUDO chmod 600 $conf
   fi
   
 done
@@ -49,7 +49,7 @@ $SUDO cp $DIR/zfsUnlocker.hook    /usr/lib/initcpio/hooks/zfsUnlocker
 $SUDO cp $DIR/zfsUnlocker.install /usr/lib/initcpio/install/zfsUnlocker
 
 
-find /etc/zfsUnlocker -type f -name 'hook' -exec chmod 740 "{}" \;
+find /etc/zfsUnlocker -type f -name 'hook' -exec $SUDO chmod 740 "{}" \;
 
 echo -e "\nBefore using this make sure you setup $conf."
 echo -e "\nIf you have just updated, consider noting your vars down and removing the above conf if new modules need to write new variables."
