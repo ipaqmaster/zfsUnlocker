@@ -9,22 +9,24 @@ function hook {
     return 1
   fi
 
-    # Desperately try Vault for all datasets with an unavailable keystatus.
-  for lockedDataset in $(zfs get -H -o name,value keystatus | grep unavailable | cut -f1)
+    # Try unlocking root dataset first. Then try unlocking other datasets with an unavailable keystatus while we're at it.
+
+  for lockedDataset in $dataset $(zfs get -H -o name,value keystatus | grep unavailable | grep -v '@' | cut -f1)
   do
+    if ! zfs get -H -o name,value keystatus ${lockedDataset} | grep unavailable ; then continue ; fi # If not still locked, skip
     URL="https://${vaultHost}/v1/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
 
     result=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")
 
     if [ "$result" == '{"errors":["permission denied"]}' ]
     then
-      echo -e "\tCouldn't find a Vault secret for ${dataset} with URL: $URL"
+      echo -e "\t\tCouldn't find a Vault secret for ${dataset} with URL: $URL"
     elif [ "$result" == '{"errors":[]}' ]
     then
-      echo -e "\tVault permission error, is the token valid?"
+      echo -e "\t\tVault permission error, is the token valid?"
     else
       vaultResult="$(echo $result | jq '.data.data.passphrase')"
-      echo -e "\tTrying to unlock $lockedDataset"
+      echo -e "\t\tTrying to unlock $lockedDataset"
       eval yes "$vaultResult" | zfs load-key -a # Try findings
     fi
   done

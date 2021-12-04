@@ -1,8 +1,17 @@
 #!/bin/bash
 
 function hook {
-  echo -e "\tGetting an IP..."
-  dhclient -1 >/dev/null 2>&1 || echo "Couldn't get an IP, manual unlock will be required."
+  echo -e "\t\tGetting an IP..."
+  if dhclient -1 >/dev/null 2>&1
+  then
+    if [ -f '/var/lib/dhclient/dhclient.leases' ]
+    then
+      myAddress="$(grep -m1 -o 'fixed-address.*' /var/lib/dhclient/dhclient.leases |grep -Eo '([0-9]+|\.)+')"
+      [ -n "$myAddress" ] && echo -e "\t\tGot address $myAddress"
+    fi
+  else
+    echo "\t\tCouldn't get an IP, manual unlock may be required."
+  fi
 
 }
 

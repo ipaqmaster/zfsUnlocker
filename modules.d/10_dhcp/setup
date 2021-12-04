@@ -1,7 +1,8 @@
 map add_module igb \
                r8169
 
-map add_binary dhclient
+map add_binary dhclient \
+               grep
 
 map add_file   /sbin/dhclient-script
 
@@ -11,3 +12,5 @@ then
   echo "send host-name $(cat /etc/hostname);" > "${BUILDROOT}/etc/dhclient.conf"
   map add_file /etc/hostname
 fi
+
+mkdir -p "${BUILDROOT}/var/lib/dhclient"

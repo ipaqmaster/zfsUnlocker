@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #
 # Goal: Find and unlock datasets, particularly the root.
 #
@@ -21,7 +23,7 @@ zfs_get_bootfs () {
 }
 
 zfs_decrypt_fs() {
-    dataset=$1
+    export dataset=$1
 
       # check if 'zfs load-key' is available
     zfs 2>&1 | grep load-key > /dev/null || return 0
@@ -44,7 +46,8 @@ zfs_decrypt_fs() {
 
     for module in $moduleList
     do
-      echo "[${module}]"
+      echo "" # spacer
+      echo -e "\t[${module}]"
       ${moduleBasepath}/${module}/hook hook
     done
 
