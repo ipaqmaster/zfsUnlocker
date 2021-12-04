@@ -1,0 +1,3 @@
+#!/bin/bash
+
+# Prepares the hook installation based on requirements of extensions in modules.d (Such as Vault)

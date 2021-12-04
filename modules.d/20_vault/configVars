@@ -1,0 +1,22 @@
+vaultHost=vault.yourdomain.local        # fqdn of vault address.
+vaultToken=s.31e9jf9akc0olT0ken0kg0ak   # This machine's token.
+vaultKvEngineName="kv"                  # default when enabling a kv engine.
+vaultRootSearchPath=data/zfs            # path in KvEngine to find keys.
+vaultKeyName=passphrase                 # What field you're after in a kv result
+
+# [Example] For an encrypted root dataset named 'root' on zpool 'myPool'
+#           as 'myPool/root'
+#
+#           'kv/data/zfs/myPool/root' with the key value name "passphrase"
+#
+#           ( You'll want an active kv engine on your Vault named 'kv'
+#             in this example.
+#             You may name your kv engine something else like 'secret' ).
+
+#
+# If it fails [connectivity, SSL, Missing secret, token permission / policy]
+# You'll be prompted as a last resort.
+
+# Make sure this computer trusts the certificate/CA for your Vault.
+# You can usually test this with a cURL to the https vault URL.
+# Trusts will be copied to initramfs if hook used.
