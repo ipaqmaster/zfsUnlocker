@@ -1,0 +1,37 @@
+#!/bin/bash
+
+function hook {
+  if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
+  then
+    . /etc/zfsUnlocker/zfsUnlocker.conf
+  else
+    echo "/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping vault module."
+    return 1
+  fi
+
+    # Desperately try Vault for all datasets with an unavailable keystatus.
+  for lockedDataset in $(zfs get -H -o name,value keystatus | grep unavailable | cut -f1)
+  do
+    URL="https://${vaultHost}/v1/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
+
+    result=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")
+
+    if [ "$result" == '{"errors":["permission denied"]}' ]
+    then
+      echo -e "\tCouldn't find a Vault secret for ${dataset} with URL: $URL"
+    elif [ "$result" == '{"errors":[]}' ]
+    then
+      echo -e "\tVault permission error, is the token valid?"
+    else
+      vaultResult="$(echo $result | jq '.data.data.passphrase')"
+      echo -e "\tTrying to unlock $lockedDataset"
+      eval yes "$vaultResult" | zfs load-key -a # Try findings
+    fi
+  done
+}
+
+function cleanup {
+ : 
+}
+
+$1

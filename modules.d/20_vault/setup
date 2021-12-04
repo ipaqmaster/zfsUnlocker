@@ -1,0 +1,15 @@
+map add_binary curl \
+               jq
+
+map add_file /usr/lib/libresolv.so.2 \
+             /usr/lib/libnss_resolve.so.2
+
+  # Certificates for cURL>vault using host's existing trust store
+map add_full_dir /etc/ssl/certs \
+                 /etc/ca-certificates
+
+  # Needed for DNS to work for cURL
+add_file "/usr/lib/libnss_dns.so.2" "/usr/lib/libnss_dns.so.2" "$(stat -Lc %a /usr/lib/libnss_dns.so.2)"
+add_file "/usr/lib/libnss_files.so.2" "/usr/lib/libnss_files.so.2" "$(stat -Lc %a /usr/lib/libnss_files.so.2)"
+
+#[[ -f `which jq` ]] && cp "`which jq`" "${BUILDROOT}/bin/jq"

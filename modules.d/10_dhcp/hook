@@ -1,0 +1,14 @@
+#!/bin/bash
+
+function hook {
+  echo -e "\tGetting an IP..."
+  dhclient -1 >/dev/null 2>&1 || echo "Couldn't get an IP, manual unlock will be required."
+
+}
+
+function cleanup {
+    # Release the lease
+  dhclient -r >/dev/null 2>&1
+}
+
+$1

@@ -1,0 +1,55 @@
+#!/bin/bash
+conf="/etc/zfsUnlocker/zfsUnlocker.conf"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+
+ # Check if we need sudo
+[[ $UID != 0  ]] && SUDO=`which sudo`
+
+$SUDO mkdir -p /etc/zfsUnlocker
+$SUDO cp -r $DIR/modules.d  /etc/zfsUnlocker/
+
+
+if [ ! -f $conf ]
+then
+  writeConf=1
+else
+  echo "Refusing to override your possibly already-configured: $conf"
+fi
+
+echo "Evaluating module package dependencies"
+
+moduleBasedir="/etc/zfsUnlocker/modules.d"
+modules="$(ls -1 $moduleBasedir| grep -v disabled)" 
+
+# We need 'which'
+which -v >/dev/null 2>&1 || yes | pacman -S which
+
+
+for module in $modules
+do
+  echo "${module}:"
+  while read packageDependency
+  do
+    echo -ne '\t'
+    which $packageDependency || yes | pacman -S $packageDependency 
+  done < ${moduleBasedir}/${module}/packageDependencies
+
+  if [ -n "$writeConf" ]
+  then
+    echo "#${module}" >> "${conf}"
+    cat ${moduleBasedir}/${module}/configVars >> "${conf}"
+    echo "" >> "${conf}" # spacer
+    chown root:root $conf ; chmod 600 $conf
+  fi
+  
+done
+
+$SUDO cp $DIR/zfsUnlocker.hook    /usr/lib/initcpio/hooks/zfsUnlocker
+$SUDO cp $DIR/zfsUnlocker.install /usr/lib/initcpio/install/zfsUnlocker
+
+
+find /etc/zfsUnlocker -type f -name 'hook' -exec chmod 740 "{}" \;
+
+echo -e "\nBefore using this make sure you setup $conf."
+echo -e "\nIf you have just updated, consider noting your vars down and removing the above conf if new modules need to write new variables."
