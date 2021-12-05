@@ -13,7 +13,7 @@ function hook {
 
   for lockedDataset in $dataset $(zfs get -H -o name,value keystatus | grep unavailable | grep -v '@' | cut -f1)
   do
-    if ! zfs get -H -o name,value keystatus ${lockedDataset} | grep unavailable ; then continue ; fi # If not still locked, skip
+    if ! zfs get -H -o name,value keystatus ${lockedDataset} | grep unavailable >/dev/null 2>&1 ; then continue ; fi # If not still locked, skip
     URL="https://${vaultHost}/v1/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
 
     result=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")
