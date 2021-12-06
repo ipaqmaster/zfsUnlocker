@@ -1,5 +1,6 @@
 map add_module igb \
-               r8169
+               r8169 \
+               e1000e
 
 map add_binary dhclient \
                grep
