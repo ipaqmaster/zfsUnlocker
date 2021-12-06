@@ -1,5 +1,25 @@
 #!/bin/bash
+
+if [ -t 1 ]
+then
+  # Some colors
+  declare -A colors
+  colors[none]="\e[0m"
+  colors[red]="\e[31m"
+  colors[green]="\e[32m"
+  colors[yellow]="\e[33m"
+  colors[blue]="\e[34m"
+  colors[magenta]="\e[35m"
+  colors[cyan]="\e[36m"
+  colors[lightgray]="\e[37m"
+  colors[white]="\e[97m"
+fi
+_scriptRoot="$(dirname $(realpath $0))"
+
+  # Used for updating the conf file
+
 conf="/etc/zfsUnlocker/zfsUnlocker.conf"
+head="#$(git -C "$_scriptRoot" rev-parse HEAD)"
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 
@@ -7,24 +27,36 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 [[ $UID != 0  ]] && SUDO=`which sudo`
 
 $SUDO mkdir -p /etc/zfsUnlocker
-$SUDO cp -r $DIR/modules.d  /etc/zfsUnlocker/
+$SUDO rsync -r --delete $DIR/modules.d  /etc/zfsUnlocker/
 
 
-if [ ! -f $conf ]
+if [ -f "$conf" ]
 then
-  writeConf=1
+  if [ "$head" != "$($SUDO head -n1 "$conf")" ] || [[ "$@" == *"force"* ]] # If different commit/version of the script detected, rebuild the conf.
+  then
+    writeConf=1
+    echo "Installing new version, existing conf will be renamed and replaced."
+    confBak="${conf}_$(date +%s).bak"
+    $SUDO mv -v "$conf" "$confBak" && \
+    echo -e "${colors[red]}Your ${colors[none]}$conf ${colors[red]}\nhas been moved to ${colors[none]}$confBak\n${colors[red]}please review and copy over your variables before resuming use.${colors[none]}"
+  fi
 else
-  echo "Refusing to override your possibly already-configured: $conf"
+  echo -e "\nBefore using this make sure you setup $conf."
 fi
 
-echo "Evaluating module package dependencies"
+if [ -n "$writeConf" ]
+then
+  echo "${head}" | $SUDO tee -a "${conf}" > /dev/null
+  $SUDO chown root:root $conf ; $SUDO chmod 600 $conf
+fi
 
+
+echo "Evaluating module package dependencies"
 moduleBasedir="/etc/zfsUnlocker/modules.d"
 modules="$(ls -1 $moduleBasedir| grep -v disabled)" 
 
 # We need 'which'
 which -v >/dev/null 2>&1 || yes | pacman -S which
-
 
 for module in $modules
 do
@@ -38,10 +70,10 @@ do
   if [ -n "$writeConf" ]
   then
     echo "#${module}" | $SUDO tee -a "${conf}" > /dev/null
-    cat ${moduleBasedir}/${module}/configVars | sudo tee -a "${conf}" > /dev/null
+    cat ${moduleBasedir}/${module}/configVars | $SUDO tee -a "${conf}" > /dev/null
     echo "" | $SUDO tee -a "${conf}" # spacer
-    $SUDO chown root:root $conf ; $SUDO chmod 600 $conf
   fi
+ 
   
 done
 
@@ -51,5 +83,3 @@ $SUDO cp $DIR/zfsUnlocker.install /usr/lib/initcpio/install/zfsUnlocker
 
 find /etc/zfsUnlocker -type f -name 'hook' -exec $SUDO chmod 740 "{}" \;
 
-echo -e "\nBefore using this make sure you setup $conf."
-echo -e "\nIf you have just updated, consider noting your vars down and removing the above conf if new modules need to write new variables."
