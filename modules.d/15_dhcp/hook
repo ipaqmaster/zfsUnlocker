@@ -1,8 +1,14 @@
 #!/bin/bash
 
 function hook {
+
+  if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
+  then
+    . /etc/zfsUnlocker/zfsUnlocker.conf
+  fi
+
   echo -e "\t\tGetting an IP..."
-  if dhclient -1 >/dev/null 2>&1
+  if dhclient -1 $forceInterface >/dev/null 2>&1
   then
     if [ -f '/var/lib/dhclient/dhclient.leases' ]
     then
