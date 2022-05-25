@@ -1,0 +1,40 @@
+#!/bin/bash
+
+function hook {
+
+  if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
+  then
+    . /etc/zfsUnlocker/zfsUnlocker.conf
+  else
+    echo "/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping vault module."
+    return 1
+  fi
+
+  if [ -z "$SSID" ]
+  then
+    echo -e "\t\tNo SSID set in zfsUnlocker.conf, skipping module."
+  else
+    echo -e "\t\tTrying to join a wireless network..."
+
+    [ ! -h /dev/fd ] && ln -s /proc/self/fd /dev/fd >/dev/null 2>&1
+
+    wirelessInterfaces="$(find /sys/class/net -name 'w*')"
+    if [ -z "$wirelessInterfaces" ] ; then echo -e "\t\tNo wireless interfaces seen. Did the drivers add correctly?" ; exit 1 ; fi
+
+    for interface in $wirelessInterfaces
+    do
+      interfaceShort="$(basename $interface)"
+      echo -e "\t\tDetected: $interfaceShort"
+      interfaceArgs+="-i $interfaceShort "
+    done 
+
+    echo wpa_supplicant -B ${interfaceArgs} -c <(echo -e "network={\n  ssid=\"${SSID}\"\n  psk=${PSK}\n}") 
+    wpa_supplicant -B ${interfaceArgs} -c <(echo -e "network={\n  ssid=\"${SSID}\"\n  psk=${PSK}\n}") 
+  fi
+}
+
+function cleanup {
+  killall wpa_supplicant
+}
+
+$1
