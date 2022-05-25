@@ -1,0 +1,9 @@
+  # Wireless network to connect to (If var empty/unset, module skips.)
+  # Generate the below using wpa_passphrase command.
+
+SSID=''
+PSK=''
+
+  # Optional force
+#interface=wlan0
+#Channel=1
