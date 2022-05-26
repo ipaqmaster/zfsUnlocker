@@ -12,9 +12,9 @@ then
   map add_module "iwlmvm"
   map add_module "mac80211"
 
-  echo "Scanning journalctl for modules iwlwifi has used..."
+  echo "Scanning journalctl for modules iwlwifi has used this boot..."
 
-  activeFirmwareList=$(journalctl |grep -o 'iwlwifi.*loaded firmware version.*ucode' | awk -F' ' '{print $NF}' | sort -u | tr '\n' ' ')
+  activeFirmwareList=$(journalctl --boot|grep -o 'iwlwifi.*loaded firmware version.*ucode' | awk -F' ' '{print $NF}' | sort -u | tr '\n' ' ')
 
   for iwlwifi_firmware_file in $activeFirmwareList
   do

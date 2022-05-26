@@ -18,19 +18,23 @@ function hook {
 
     [ ! -h /dev/fd ] && ln -s /proc/self/fd /dev/fd >/dev/null 2>&1
 
-    wirelessInterfaces="$(find /sys/class/net -name 'w*')"
-    if [ -z "$wirelessInterfaces" ] ; then echo -e "\t\tNo wireless interfaces seen. Did the drivers add correctly?" ; exit 1 ; fi
+    interfaces="$(find /sys/class/net -mindepth 1)"
 
-    for interface in $wirelessInterfaces
+    for interface in $interfaces # Look for wireless interfaces
     do
-      interfaceShort="$(basename $interface)"
-      echo -e "\t\tDetected: $interfaceShort"
-      interfaceArgs+="-i $interfaceShort "
+      if [ -d $interface/wireless ]
+      then
+	interfaceShort="$(basename $interface)"
+        echo -e "\t\tDetected: $interfaceShort"
+	wirelessInterfaces+="$interfaceShort "
+      fi
     done 
-
-    echo wpa_supplicant -B ${interfaceArgs} -c <(echo -e "network={\n  ssid=\"${SSID}\"\n  psk=${PSK}\n}") 
-    wpa_supplicant -B ${interfaceArgs} -c <(echo -e "network={\n  ssid=\"${SSID}\"\n  psk=${PSK}\n}") 
   fi
+
+    if [ -z "$wirelessInterfaces" ] ; then echo -e "\t\tNo wireless interfaces seen. Did the drivers add correctly?" ; exit 1 ; fi
+    for wirelessInterface in $wirelessInterfaces ; do interfaceArgs+="-i $wirelessInterface " ; done
+
+    echo -ne '\t\t'; wpa_supplicant -B ${interfaceArgs} -c <(echo -e "network={\n  ssid=\"${SSID}\"\n  psk=${PSK}\n}") 
 }
 
 function cleanup {
