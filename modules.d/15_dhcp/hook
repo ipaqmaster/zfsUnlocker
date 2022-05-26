@@ -1,23 +1,40 @@
 #!/bin/bash
 
 function hook {
-
   if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
   then
     . /etc/zfsUnlocker/zfsUnlocker.conf
   fi
 
   echo -e "\t\tGetting an IP..."
-  if dhclient -1 $forceInterface >/dev/null 2>&1
-  then
-    if [ -f '/var/lib/dhclient/dhclient.leases' ]
+
+#  interfaces="$(find /sys/class/net -mindepth 1)"
+#
+#  for interface in $interfaces # Look for UP interfaces to try
+#  do
+#    if grep -q -i 'up' ${interface}/operstate
+#    then
+#      interfaceShort="$(basename $interface)"
+#      echo -e "\t\tTrying DHCP on UP interface: $interfaceShort"
+#      upInterfaces+="$interfaceShort "
+#    fi
+#  done 
+# 
+# 
+#  for upInterface in $upInterfaces # Try up interfaces until we get an IP or bust.
+#  do
+    if dhclient $forceInterface -v # >/dev/null 2>&1
     then
-      myAddress="$(grep -m1 -o 'fixed-address.*' /var/lib/dhclient/dhclient.leases |grep -Eo '([0-9]+|\.)+')"
-      [ -n "$myAddress" ] && echo -e "\t\tGot address $myAddress"
+      if [ -f '/var/lib/dhclient/dhclient.leases' ]
+      then
+        myAddress="$(grep -m1 -o 'fixed-address.*' /var/lib/dhclient/dhclient.leases |grep -Eo '([0-9]+|\.)+')"
+        [ -n "$myAddress" ] && echo -e "\t\tGot address $myAddress"
+#	break
+      fi
+    else
+      echo -e "\t\tCouldn't get an IP, manual unlock may be required."
     fi
-  else
-    echo "\t\tCouldn't get an IP, manual unlock may be required."
-  fi
+#  done
 
 }
 
