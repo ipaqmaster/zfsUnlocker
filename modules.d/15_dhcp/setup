@@ -10,7 +10,7 @@ map add_file   /sbin/dhclient-script
   # Use the machine's hostname if available for dhclient.
 if [ -f "/etc/hostname" ] 
 then
-  echo "send host-name $(cat /etc/hostname);" > "${BUILDROOT}/etc/dhclient.conf"
+  echo "send host-name \"$(cat /etc/hostname)\";" > "${BUILDROOT}/etc/dhclient.conf"
   map add_file /etc/hostname
 fi
 
