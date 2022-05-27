@@ -8,9 +8,18 @@ function checkVaultTokenValid {
   if [ "$result" == '{"errors":["permission denied"]}' ]
   then
     echo -e "\t\tPermission Denied from Vault trying to lookup own token. Token may be expired or invalid."
+  elif [ $curlReturnCode -eq 6 ]
+  then
+    echo -e "\t\tcURL failed to resolve the remote host. Networking may be down."
+    return $curlReturnCode
+  elif [ $curlReturnCode -gt 0 ]
+  then
+    echo -e "\t\tSomething else went wrong with our cURL attempt [cURL exit code $curlReturnCode]"
   else
     echo -e "\t\tAccessing vault [$vaultHost] successful, TOKEN IS VALID."
   fi
+
+  return $curlReturnCode
 }
 
 function attemptVaultRead {
