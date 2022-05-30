@@ -23,7 +23,7 @@ function hook {
 # 
 #  for upInterface in $upInterfaces # Try up interfaces until we get an IP or bust.
 #  do
-    if dhclient $forceInterface -v  >/dev/null 2>&1
+    if dhclient $forceInterface -v >/dev/null 2>&1
     then
       if [ -f '/var/lib/dhclient/dhclient.leases' ]
       then

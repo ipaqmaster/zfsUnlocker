@@ -1,31 +1,34 @@
-map add_binary wpa_supplicant
-map add_binary find
-map add_binary killall
+map add_binary wpa_supplicant \
+               find \
+               killall
+
 map add_file   /sbin/dhclient-script
+
 map add_module ccm
 
 function add_wificard {
 
-if [ "$driver" == "iwlwifi" ]
-then
-  echo "$busPath is an iwlwifi card, adding iwlmvm, iwlwifi and mac80211."
-  map add_module "iwlwifi"
-  map add_module "iwlmvm"
-  map add_module "mac80211"
+  map add_module $driver mac80211 # Always add the core driver plus mac80211
 
-  echo "Scanning journalctl for modules iwlwifi has used this boot..."
+    # Special cases for certain drivers
+  if [ "$driver" == "iwlwifi" ]
+  then
+    echo "$busPath is an iwlwifi card, also adding iwlmvm"
+    map add_module iwlmvm
 
-  activeFirmwareList=$(journalctl --boot|grep -o 'iwlwifi.*loaded firmware version.*ucode' | awk -F' ' '{print $NF}' | sort -u | tr '\n' ' ')
+    echo "Scanning journalctl for modules iwlwifi has used this boot..."
 
-  for iwlwifi_firmware_file in $activeFirmwareList
-  do
-    echo "Caught ${iwlwifi_firmware_file} in use, adding to initramfs."
-    map add_file /usr/lib/firmware/iwlwifi-${iwlwifi_firmware_file}*
-  done
-fi
+    activeFirmwareList=$(journalctl --boot|grep -o 'iwlwifi.*loaded firmware version.*ucode' | awk -F' ' '{print $NF}' | sort -u | tr '\n' ' ')
 
+    for iwlwifi_firmware_file in $activeFirmwareList
+    do
+      echo "Detected ${iwlwifi_firmware_file} in use, adding to initramfs for next boot."
+      map add_file /usr/lib/firmware/iwlwifi-${iwlwifi_firmware_file}*
+    done
+  fi
 }
 
+# Main loop to search for wifi devices
 while read pci_wireless_controller
 do
   echo $pci_wireless_controller
