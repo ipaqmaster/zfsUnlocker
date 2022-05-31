@@ -1,6 +1,6 @@
-vaultHost=vault.yourdomain.local        # fqdn of vault address.
-vaultToken=s.31e9jf9akc0olT0ken0kg0ak   # This machine's token.
-vaultKvEngineName="kv"                  # default when enabling a kv engine.
+vaultHost=''                            # fqdn of vault address.
+vaultToken=''                           # This machine's token.
+vaultKvEngineName='kv'                  # default when enabling a kv engine.
 vaultRootSearchPath=data/zfs            # path in KvEngine to find keys.
 vaultKeyName=passphrase                 # What field you're after in a kv result
 
