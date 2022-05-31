@@ -4,6 +4,3 @@
 SSID=''
 PSK=''
 
-  # Optional force
-#interface=wlan0
-#Channel=1
