@@ -1,5 +1,10 @@
 #!/bin/bash
 
+function kernelArgumentSpiel {
+  echo -e "\t\tIf initramfs regeneration is not an option consider passing in vault variables"
+  echo -e "\t\tVia kernel arguments: VAULTSERVEROVERRIDE=xxx and VAULTTOKENOVERRIDE=xxx"
+}
+
 function checkVaultTokenValid {
     # Do a self-lookup API call before waiting any time
   URL="https://${vaultHost}/v1/auth/token/lookup-self"
@@ -7,14 +12,20 @@ function checkVaultTokenValid {
   curlReturnCode=$?
   if [ "$result" == '{"errors":["permission denied"]}' ]
   then
-    echo -e "\t\tPermission Denied from Vault trying to lookup own token. Token may be expired or invalid."
+    echo -e "\t\tPermission Denied from Vault while trying to lookup own token?"
+    echo -e "\t\tApplied token policy may be too tight."
   elif [ $curlReturnCode -eq 6 ]
   then
     echo -e "\t\tcURL failed to resolve the remote host. Networking may be down."
     return $curlReturnCode
+  elif [ $curlReturnCode -eq 22 ]
+  then
+    echo -e "\t\tcURL received 4xx response from vault server [cURL exit code $curlReturnCode]"
+    echo -e "\t\tToken could be invalid."
+    kernelArgumentSpiel
   elif [ $curlReturnCode -gt 0 ]
   then
-    echo -e "\t\tSomething else went wrong with our cURL attempt [cURL exit code $curlReturnCode]"
+    echo -e "\t\tSomething else went wrong with our cURL attempt to verify token validity [cURL exit code $curlReturnCode]"
   else
     echo -e "\t\tAccessing vault [$vaultHost] successful, TOKEN IS VALID."
   fi
@@ -51,11 +62,26 @@ function attemptVaultRead {
 }
 
 function hook {
+
   if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
   then
     . /etc/zfsUnlocker/zfsUnlocker.conf
   else
-    echo "/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping vault module."
+    echo "\t\t/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping vault module."
+    return 1
+  fi
+
+    # Check for kernel argument overrides and use them if available.
+  if [ -n "$VAULTHOSTOVERRIDE" ] && [ -n "$VAULTTOKENOVERRIDE" ]
+  then
+    echo -e "\t\tCustom vault token and server provided in kernel arguments, using those..."
+     vaultHost=$VAULTHOSTOVERRIDE
+    vaultToken=$VAULTTOKENOVERRIDE
+  elif [ -z "$vaultHost" ] || [ -z "$vaultToken" ]
+  then
+    echo -e "\t\tvaultHost and/or vaultToken variables left empty in zfsUnlocker.conf."
+    echo -e "\t\tCannot possibly run hook."
+    kernelArgumentSpiel
     return 1
   fi
 
