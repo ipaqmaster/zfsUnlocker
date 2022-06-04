@@ -1,45 +1,46 @@
 #!/bin/bash
 
 function kernelArgumentSpiel {
-  echo -e "\t\tIf initramfs regeneration is not an option consider passing in vault variables"
-  echo -e "\t\tVia kernel arguments: VAULTSERVEROVERRIDE=xxx and VAULTTOKENOVERRIDE=xxx"
+  echo -e "\t\tKernel arguments: VAULTSERVEROVERRIDE=xxx and VAULTTOKENOVERRIDE=xxx"
+  echo -e "\t\tCan be used to override vault vars without initramfs regeneration."
 }
 
 function checkVaultTokenValid {
     # Do a self-lookup API call before waiting any time
   URL="https://${vaultHost}/v1/auth/token/lookup-self"
-  result=$(curl --fail -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")
-  curlReturnCode=$?
-  if [ "$result" == '{"errors":["permission denied"]}' ]
+  resultJson=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")    ; curlReturnCodeJson=$?
+
+  if [ "$resultJson" == '{"errors":["Vault is sealed"]}' ]
   then
-    echo -e "\t\tPermission Denied from Vault while trying to lookup own token?"
-    echo -e "\t\tApplied token policy may be too tight."
-  elif [ $curlReturnCode -eq 6 ]
+    echo -e "\t\tThe remote vault server claims to be sealed."
+    echo -e "\t\tCannot continue until its unsealed."
+    return 1
+  elif [ "$resultJson" == '{"errors":["permission denied"]}' ]
+  then
+    echo -e "\t\tVault server reachable but permission denied trying to lookup own token."
+    echo -e "\t\tToken may be invalid or applied policy may be too tight."
+    kernelArgumentSpiel
+    return 1
+  elif [ $curlReturnCodeJson -eq 6 ]
   then
     echo -e "\t\tcURL failed to resolve the remote host. Networking may be down."
-    return $curlReturnCode
-  elif [ $curlReturnCode -eq 22 ]
+    return $curlReturnCodeJson
+  elif [ $curlReturnCodeJson -gt 0 ]
   then
-    echo -e "\t\tcURL received 4xx response from vault server [cURL exit code $curlReturnCode]"
-    echo -e "\t\tToken could be invalid."
-    kernelArgumentSpiel
-  elif [ $curlReturnCode -gt 0 ]
-  then
-    echo -e "\t\tSomething else went wrong with our cURL attempt to verify token validity [cURL exit code $curlReturnCode]"
+    echo -e "\t\tSomething else went wrong with our cURL attempt to verify token validity [cURL exit code $curlReturnCodeJson]"
   else
     echo -e "\t\tAccessing vault [$vaultHost] successful, TOKEN IS VALID."
   fi
 
-  return $curlReturnCode
+  return $curlReturnCodeJson
 }
 
 function attemptVaultRead {
     URL="https://${vaultHost}/v1/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
     result=$(curl --fail -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")
-    curlReturnCode=$?
+    curlReturnCodeJson=$?
 
-
-    if [ $curlReturnCode -eq 22 ]
+    if [ $curlReturnCodeJson -eq 22 ]
     then
         # Try again to catch the error
       responseCode=$(curl --fail -H "X-Vault-Token: $vaultToken" -X GET "$URL" 2>&1 | grep -oP '[0-9]{3}$')
@@ -75,6 +76,7 @@ function hook {
   if [ -n "$VAULTHOSTOVERRIDE" ] && [ -n "$VAULTTOKENOVERRIDE" ]
   then
     echo -e "\t\tCustom vault token and server provided in kernel arguments, using those..."
+    echo -e ""
      vaultHost=$VAULTHOSTOVERRIDE
     vaultToken=$VAULTTOKENOVERRIDE
   elif [ -z "$vaultHost" ] || [ -z "$vaultToken" ]
