@@ -31,15 +31,20 @@ function add_wificard {
 # Main loop to search for wifi devices
 while read pci_wireless_controller
 do
-  echo $pci_wireless_controller
-  busPath="$(cut -f1 -d' ' <<< $pci_wireless_controller)"
-  busPathEscaped="$(sed 's/:/\\:/g' <<< $busPath)"
-  vendorClass="$(grep -Eo '[0-9]{4}:[0-9]{4}' <<< $pci_wireless_controller)"
-  vendor="$(cut -f1 -d : <<< $vendorClass)" ; class="$(cut -f2 -d : <<< $vendorClass)"
-  driver="$(basename $(readlink /sys/bus/pci/devices/${busPath}/driver))"
+  if [ -n "$pci_wireless_controller" ]
+  then
+    echo $pci_wireless_controller
+    busPath="$(cut -f1 -d' ' <<< $pci_wireless_controller)"
+    busPathEscaped="$(sed 's/:/\\:/g' <<< $busPath)"
+    vendorClass="$(grep -Eo '[0-9]{4}:[0-9]{4}' <<< $pci_wireless_controller)"
+    vendor="$(cut -f1 -d : <<< $vendorClass)" ; class="$(cut -f2 -d : <<< $vendorClass)"
+    driver="$(basename $(readlink /sys/bus/pci/devices/${busPath}/driver))"
 
-  echo "Found $vendorClass at path $busPath using driver $driver"
+    echo "Found $vendorClass at path $busPath using driver $driver"
+    add_wificard
 
-  add_wificard
+  fi
+
+
 
 done <<< "$(grep -Ei 'Wi(-)?Fi' <<< $(lspci -D -nn))"
