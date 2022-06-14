@@ -13,6 +13,7 @@ function hook {
   if [ -z "$SSID" ]
   then
     echo -e "\t\tNo SSID set in zfsUnlocker.conf, skipping module."
+    return 1
   else
     echo -e "\t\tTrying to join a wireless network..."
 
