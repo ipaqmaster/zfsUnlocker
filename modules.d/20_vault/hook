@@ -68,7 +68,7 @@ function hook {
   then
     . /etc/zfsUnlocker/zfsUnlocker.conf
   else
-    echo "\t\t/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping vault module."
+    echo "\t\t/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping module."
     return 1
   fi
 
