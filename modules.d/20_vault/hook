@@ -76,6 +76,8 @@ function hook {
   if [ -n "$VAULTHOSTOVERRIDE" ] && [ -n "$VAULTTOKENOVERRIDE" ]
   then
     echo -e "\t\tCustom vault token and server provided in kernel arguments, using those..."
+    chmod 440 /proc/cmdline # Hide them from regular processes
+    echo -e "\t\t/proc/cmdline permissions switched to 440 to help protect token."
     echo -e ""
      vaultHost=$VAULTHOSTOVERRIDE
     vaultToken=$VAULTTOKENOVERRIDE
