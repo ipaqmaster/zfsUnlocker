@@ -41,6 +41,7 @@ then
     echo -e "${colors[red]}Your ${colors[none]}$conf ${colors[red]}\nhas been moved to ${colors[none]}$confBak\n${colors[red]}please review and copy over your variables before resuming use.${colors[none]}"
   fi
 else
+  writeConf=1
   echo -e "\nBefore using this make sure you setup $conf."
 fi
 

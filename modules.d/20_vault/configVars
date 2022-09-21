@@ -3,6 +3,7 @@ vaultToken=''                           # This machine's token.
 vaultKvEngineName='kv'                  # default when enabling a kv engine.
 vaultRootSearchPath=data/zfs            # path in KvEngine to find keys.
 vaultKeyName=passphrase                 # What field you're after in a kv result
+vaultPromptForMissingInfo=0             # Prompt on the command line if missing a token or URL from other sources?
 
 # [Example] For an encrypted root dataset named 'root' on zpool 'myPool'
 #           as 'myPool/root'
