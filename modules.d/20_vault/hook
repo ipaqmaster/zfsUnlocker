@@ -73,23 +73,33 @@ function hook {
   fi
 
     # Check for kernel argument overrides and use them if available.
-  if [ -n "$VAULTHOSTOVERRIDE" ] && [ -n "$VAULTTOKENOVERRIDE" ]
+  if [ -n "$VAULTHOSTOVERRIDE" ] || [ -n "$VAULTTOKENOVERRIDE" ]
   then
-    echo -e "\t\tCustom vault token and server provided in kernel arguments, using those..."
-    chmod 440 /proc/cmdline # Hide them from regular processes
+    echo -e "\t\tCustom vault args provided in kernel arguments, using those..."
+    chmod 440 /proc/cmdline # Best effort protection from regular processes
     echo -e "\t\t/proc/cmdline permissions switched to 440 to help protect token."
     echo -e ""
-     vaultHost=$VAULTHOSTOVERRIDE
-    vaultToken=$VAULTTOKENOVERRIDE
-  elif [ -z "$vaultHost" ] || [ -z "$vaultToken" ]
+    [ -n "$VAULTHOSTOVERRIDE" ]  && vaultHost=$VAULTHOSTOVERRIDE  && echo -e "\t\tSet vault host from cmdline"
+    [ -n "$VAULTTOKENOVERRIDE" ] && vaultToken=$VAULTHOSTOVERRIDE && echo -e "\t\tSet vault token from cmdline"
+  fi
+
+  if [ $vaultPromptForMissingInfo -eq 1 ] && [ -z "$vaultToken" -o -z "$vaultHost" ]
   then
-    echo -e "\t\tvaultHost and/or vaultToken variables left empty in zfsUnlocker.conf."
-    echo -e "\t\tCannot possibly run hook."
+    echo -e "\t\tPrompting enabled and I have no keys, prompting for extra details..."
+    [ -z "$vaultToken" ] && read -sp "Vault Token:" vaultToken
+    [ -z "$vaultHost" ]  && read -sp "Vault Host:" vaultHost
+  fi
+
+  if [ -z "$vaultToken" ] || [ -z "$vaultHost"  ]
+  then
+    echo -e "\t\tNot enough info to run vault hook"
+    [ -z "$vaultHost" ]  && echo -e "\t\tVault host missing"
+    [ -z "$vaultToken" ] && echo -e "\t\tVault token missing"
     kernelArgumentSpiel
     return 1
   fi
 
-    checkVaultTokenValid|| exit 1
+    checkVaultTokenValid || exit 1
 
     # Try unlocking all datasets with an 'unavailable' keystatus, but root first.
 
