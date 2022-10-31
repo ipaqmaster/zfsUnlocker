@@ -52,6 +52,7 @@ function attemptVaultRead {
         echo -e "\t\tVault returned a 404 for ${lockedDataset}. The secret may not exist?"
       else
       echo -e "\t\tVault returned an error trying to read your unlock passphrase. Does the kv secret exist?"
+      echo $vaultHost $vaultToken
       fi
       return 1
     elif [ "$result" == '{"errors":["permission denied"]}' ]
@@ -76,11 +77,10 @@ function hook {
   if [ -n "$VAULTHOSTOVERRIDE" ] || [ -n "$VAULTTOKENOVERRIDE" ]
   then
     echo -e "\t\tCustom vault args provided in kernel arguments, using those..."
+    [ -n "$VAULTHOSTOVERRIDE" ]  && vaultHost=$VAULTHOSTOVERRIDE  && echo -e "\t\tSet vault host from cmdline"
+    [ -n "$VAULTTOKENOVERRIDE" ] && vaultToken=$VAULTTOKENOVERRIDE && echo -e "\t\tSet vault token from cmdline"
     chmod 440 /proc/cmdline # Best effort protection from regular processes
     echo -e "\t\t/proc/cmdline permissions switched to 440 to help protect token."
-    echo -e ""
-    [ -n "$VAULTHOSTOVERRIDE" ]  && vaultHost=$VAULTHOSTOVERRIDE  && echo -e "\t\tSet vault host from cmdline"
-    [ -n "$VAULTTOKENOVERRIDE" ] && vaultToken=$VAULTHOSTOVERRIDE && echo -e "\t\tSet vault token from cmdline"
   fi
 
   if [ $vaultPromptForMissingInfo -eq 1 ] && [ -z "$vaultToken" -o -z "$vaultHost" ]
