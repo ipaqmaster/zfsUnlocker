@@ -11,16 +11,16 @@ function add_wificard {
     # Special cases for certain drivers
   if [ "$driver" == "iwlwifi" ]
   then
-    echo "$busPath is an iwlwifi card, also adding iwlmvm"
+    echo -e "\t$busPath is an iwlwifi card, also adding iwlmvm"
     map add_module iwlmvm
 
-    echo "Scanning journalctl for modules iwlwifi has used this boot..."
+    echo -e "\tScanning journalctl for modules iwlwifi has used this boot..."
 
     activeFirmwareList=$(journalctl --boot|grep -o 'iwlwifi.*loaded firmware version.*ucode' | awk -F' ' '{print $NF}' | sort -u | tr '\n' ' ')
 
     for iwlwifi_firmware_file in $activeFirmwareList
     do
-      echo "Detected ${iwlwifi_firmware_file} in use, adding to initramfs for next boot."
+      echo -e "\tDetected ${iwlwifi_firmware_file} in use, adding to initramfs for next boot."
       map add_file /usr/lib/firmware/iwlwifi-${iwlwifi_firmware_file}*
     done
   fi
@@ -37,7 +37,7 @@ do
     vendor="$(cut -f1 -d : <<< $vendorClass)" ; class="$(cut -f2 -d : <<< $vendorClass)"
     driver="$(basename $(readlink /sys/bus/pci/devices/${busPath}/driver))"
 
-    echo "Found $vendorClass at path $busPath using driver $driver"
+    echo -e "\tFound $vendorClass at path $busPath using driver $driver"
     add_wificard
 
   fi
@@ -45,3 +45,5 @@ do
 
 
 done <<< "$(grep -Ei 'Wi(-)?Fi' <<< $(lspci -D -nn))"
+
+echo -e ""
