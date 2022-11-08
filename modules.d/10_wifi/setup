@@ -2,8 +2,6 @@ map add_binary wpa_supplicant \
                find \
                killall
 
-map add_file   /sbin/dhclient-script
-
 map add_module ccm
 
 function add_wificard {
@@ -33,10 +31,9 @@ while read pci_wireless_controller
 do
   if [ -n "$pci_wireless_controller" ]
   then
-    echo $pci_wireless_controller
     busPath="$(cut -f1 -d' ' <<< $pci_wireless_controller)"
     busPathEscaped="$(sed 's/:/\\:/g' <<< $busPath)"
-    vendorClass="$(grep -Eo '[0-9]{4}:[0-9]{4}' <<< $pci_wireless_controller)"
+    vendorClass="$(grep -Eo '[0-9a-z]{4}:[0-9a-z]{4}' <<< $pci_wireless_controller)"
     vendor="$(cut -f1 -d : <<< $vendorClass)" ; class="$(cut -f2 -d : <<< $vendorClass)"
     driver="$(basename $(readlink /sys/bus/pci/devices/${busPath}/driver))"
 
