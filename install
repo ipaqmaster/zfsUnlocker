@@ -65,7 +65,7 @@ do
   while read packageDependency
   do
     echo -ne '\t'
-    which $packageDependency || yes | pacman -S $packageDependency 
+    pacman -Q $packageDependency || yes | pacman --noconfirm -S "$packageDependency"
   done < ${moduleBasedir}/${module}/packageDependencies
 
   if [ -n "$writeConf" ]
