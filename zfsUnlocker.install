@@ -27,6 +27,9 @@ build() {
   map add_dir      /etc/zfs/zed.d
   map add_full_dir /etc/zfsUnlocker
 
+  # Primarily for interface naming
+  map add_full_dir /usr/lib/udev/rules.d
+
       # Also append everything our zfsUnlocker modules claim they need.
       # And let them run their own checks/copies.
       for hookSetup in /etc/zfsUnlocker/modules.d/*/setup
