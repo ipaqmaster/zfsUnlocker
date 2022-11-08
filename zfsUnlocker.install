@@ -25,7 +25,8 @@ build() {
 		   /lib/libgcc_s.so.1
 
   map add_dir      /etc/zfs/zed.d
-  map add_full_dir /etc/zfsUnlocker
+  map add_file     /etc/zfsUnlocker/zfsUnlocker.conf
+  map add_full_dir /etc/zfsUnlocker/modules.d
 
   # Primarily for interface naming
   map add_full_dir /usr/lib/udev/rules.d
