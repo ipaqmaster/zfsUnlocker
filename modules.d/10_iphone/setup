@@ -1,0 +1,9 @@
+map add_binary grep \
+               idevicepair \
+               lsusb \
+               pkill \
+               usbmuxd \
+
+map add_module ipheth
+
+map add_full_dir /var/lib/lockdown

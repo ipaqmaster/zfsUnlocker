@@ -1,0 +1,55 @@
+#!/bin/bash
+
+function hook {
+
+  if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
+  then
+    . /etc/zfsUnlocker/zfsUnlocker.conf
+  else
+    echo "/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping module."
+    return 1
+  fi
+
+  if [ "$TryiPhoneUSB" == 1 ]
+  then
+
+    usbmuxd >/dev/null 2>&1 && sleep 1
+
+    validateResult="$(idevicepair validate)"
+    if grep -qs 'No device found.' <<< "$validateResult"
+    then
+      echo -e "\t\tNo phone found."
+      return 0
+    elif grep -Eqs '^SUCCESS' <<< "$validateResult"
+    then
+      echo -e "\t\tPhone detected and ready."
+      return 0
+    fi
+
+    pairResult="$(idevicepair pair)"
+    if grep -qs 'Please enter the passcode' <<< "$pairResult"
+    then
+      headsup=1
+      echo -e "\t\tUnlock phone to trust this PC"
+    elif grep -qs 'Please accept the trust' <<< "$pairResult"
+    then
+      headsup=1
+      echo -e "\t\tPhone is asking to trust this PC"
+    elif grep -qs 'user denied the trust' <<< "$pairResult"
+    then
+      headsup=1
+      echo -e "\t\tPhone does not trust this PC. Replug o try again next boot."
+    else
+      echo -e "\t\tIt seems something else went wrong trying to talk with the phone:\n$pairResult"
+    fi
+  else
+    echo -e "\t\tModule not in use"
+  fi
+}
+
+function cleanup {
+  pkill usbmuxd
+}
+
+$1
+
