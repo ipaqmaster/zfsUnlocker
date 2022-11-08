@@ -7,3 +7,13 @@ map add_binary grep \
 map add_module ipheth
 
 map add_full_dir /var/lib/lockdown
+
+
+if [ -z "$(idevicepair list)" ]
+then
+  echo -e "\t10_iphone module: For best results, pair your phone with 'idevicepair pair' and"
+  echo -e "\tconfirm with 'idevicepair validate' before generating your initramfs."
+  
+  echo -e "\tYou can pair on the fly in initramfs if you're quick enough, but it's an extra step that way."
+  echo -e ""
+fi
