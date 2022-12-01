@@ -1,0 +1,4 @@
+coreutils
+openssh
+procps-ng
+mkinitcpio-dropbear

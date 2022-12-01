@@ -1,0 +1,5 @@
+# Any accounts on this system who's public keys are important enough to allow root passphrase entry?
+#authorizedUsers='root operator'
+
+# How long should the 5 minute entry passphrase be?
+passphraseSizeBytes=64

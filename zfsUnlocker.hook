@@ -36,8 +36,8 @@ zfs_decrypt_fs() {
 
       # get the encryption root
     encryptionroot=$(zfs get -H -o value encryptionroot "${dataset}")
+    echo $encryptionroot > /tmp/encryptionroot # For any other modules to have a crack at it
 
-      # export encription root to be used by other hooks (SSH)
     echo -e "\tTrying modules..."
 
       # Try zfsUnlocker's modules.d hooks in order
@@ -46,24 +46,27 @@ zfs_decrypt_fs() {
 
     for module in $moduleList
     do
+      [ "$(zfs get -H -o value keystatus "${encryptionroot}")" = "available" ] && break
       echo "" # spacer
       echo -e "\t[${module}]"
       ${moduleBasepath}/${module}/hook hook
     done
 
-      # After running them all, run their cleanup scripts if included
+      # When out of options, loop indefinitely on a password prompt.
+    [ "$(zfs get -H -o value keystatus "${encryptionroot}")" != "available" ] && echo "Out of options, prompting indefinitely."
+    while [ "$(zfs get -H -o value keystatus "${encryptionroot}")" != "available" ]
+    do
+      read -t 30 -s -p "Enter unlock passphrase: " userinput ; yes "${userinput}" | zfs load-key -a ; unset userinput
+        sleep 2
+    done
+
+      # If we make it to a mountable root, run the cleanup functions of our hook modules before we get there.
     for module in $moduleList
     do
       ${moduleBasepath}/${module}/hook cleanup
     done
 
-    # When out of options, loop indefinitely on a password prompt.
-    [ "$(zfs get -H -o value keystatus "${encryptionroot}")" != "available" ] && echo "Out of options, prompting indefinitely."
-    while [ "$(zfs get -H -o value keystatus "${encryptionroot}")" != "available" ]
-    do
-      read -s -p "Enter unlock passphrase: " userinput ; yes "${userinput}" | zfs load-key -a ; unset userinput
-        sleep 2
-    done
+
 
 }
 

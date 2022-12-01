@@ -1,0 +1,30 @@
+#!/bin/bash
+
+function hook {
+  transientPassword="$(dd if=/dev/urandom bs=${passphraseSizeBytes} count=1 | base64)"
+  echo -e "\t\tTransient password set, refer to the module documentation or note it below. Prompt is open for 5 minutes."
+  echo -e "\t\t$transientPassword"
+  rootShadow="$(openssl passwd -6 "$transientPassword")"
+  [ ! -f '/etc/passwd' ] && echo 'root:x:0:0::/root:/bin/bash' > /etc/passwd
+  [ ! -f '/etc/shadow' ] && echo "root:${rootShadow}:1::::::"  > /etc/shadow
+  mkdir /dev/pts ; mount -t devpts devpts /dev/pts
+  timeout 300 dropbear -E -F -R -c '. /etc/zfsUnlocker/modules.d/21_ssh/hook' &
+}
+
+function tryPassword {
+  while [ "$(zfs get -H -o value keystatus "$(</tmp/encryptionroot)")" != "available" ]
+  do
+    read -s -p "Enter unlock passphrase: " userinput ; yes "${userinput}" | zfs load-key -a ; unset userinput
+      sleep 2
+  done
+  echo "Accepted, host should finish booting shortly."
+}
+
+function cleanup {
+ pkill -f -9 dropbear
+ umount /dev/pts
+}
+
+
+[ -z "$1" ] && tryPassword # Assume no argument is here to unlock something.
+$1

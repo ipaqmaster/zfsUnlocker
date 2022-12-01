@@ -59,7 +59,7 @@ function attemptVaultRead {
     then
       echo -e "\t\tPermission Denied trying to read vault secret for ${dataset} with URL: $URL"
     else
-      vaultPassphraseResult="$(echo $result | jq '.data.data.passphrase')"
+      vaultPassphraseResult="$(echo $result | jq -r '.data.data.passphrase')"
     fi
 }
 
