@@ -1,0 +1,38 @@
+map add_binary sshd \
+               base64 \
+               cut \
+               date \
+               dropbear \
+               passwd \
+               sha1sum \
+               pkill \
+               timeout \
+               openssl
+
+map add_file   /etc/ld.so.cache \
+               /usr/lib/libssl.so \
+               /usr/lib/libcrypto.so \
+               /usr/lib/libc.so \
+               /etc/ssl/openssl.cnf \
+               /etc/shells 
+
+mkdir "${BUILDROOT}/etc/dropbear"
+
+. /etc/zfsUnlocker/zfsUnlocker.conf
+if [ -n "$authorizedUsers" ]
+then
+  for user in $authorizedUsers
+  do
+    if grep -q $user /etc/passwd
+    then
+      homedir="$(getent passwd $user | cut -d: -f6)"
+      mkdir -p ${BUILDROOT}/root/.ssh
+      if [ -f "${homedir}/.ssh/authorized_keys" ]
+      then
+        cat "${homedir}/.ssh/authorized_keys" >> "${BUILDROOT}/root/.ssh/authorized_keys"
+      else
+        echo "$user authorized_keys file not found?"
+      fi
+    fi
+  done
+fi
