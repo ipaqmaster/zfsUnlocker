@@ -130,6 +130,17 @@ zfs_mount_handler () {
 run_hook() {
 
     echo "[zfsUnlocker]"
+    [ ! -h /dev/fd ] && ln -s /proc/self/fd /dev/fd >/dev/null 2>&1
+    until grep -q zfs <(lsmod)
+    do
+      echo -ne "Modprobing ZFS..."
+      modprobe zfs
+      echo -ne '.'
+      count=$(( $count + 1 ))
+      [ $count -eq 5 ] && echo -ne "\rStuck trying to modprobe zfs... being patient"
+      [ $count -ge 60 ] && { echo -e "\nCouldn't modprobe ZFS. Waited too long for this to be a slow host. Missing zfs module in initramfs?" ; break ;}
+      sleep 1
+    done
 
     case ${root} in
         # root=zfs
