@@ -1,6 +1,7 @@
 #!/bin/bash
 
 function hook {
+  . /etc/zfsUnlocker/zfsUnlocker.conf
   transientPassword="$(dd if=/dev/urandom bs=${passphraseSizeBytes} count=1 | base64)"
   echo -e "\t\tTransient password set, refer to the module documentation or note it below. Prompt is open for 5 minutes."
   echo -e "\t\t$transientPassword"
