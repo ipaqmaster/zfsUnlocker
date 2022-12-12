@@ -23,7 +23,7 @@ function tryPassword {
 
 function cleanup {
  pkill -f -9 dropbear
- umount /dev/pts
+ umount -q /dev/pts 2>/dev/null
 }
 
 
