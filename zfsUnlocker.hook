@@ -57,8 +57,14 @@ zfs_decrypt_fs() {
     while [ "$(zfs get -H -o value keystatus "${encryptionroot}")" != "available" ]
     do
       clear
-      read -t 30 -s -p "Enter unlock passphrase: " userinput ; yes "${userinput}" | zfs load-key -a ; unset userinput
+      read -t 30 -s -p "Enter unlock passphrase: " userinput
+
+      if [ -n "$userinput" ]
+      then
+        yes "${userinput}" | zfs load-key -a
+        unset userinput
         sleep 2
+      fi
     done
 
       # If we make it to a mountable root, run the cleanup functions of our hook modules before we get there.
