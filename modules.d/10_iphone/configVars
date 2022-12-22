@@ -1,3 +1,2 @@
   # Check for an iphone hotspot over USB?
-
-TryiPhoneUSB=0
+TryiPhoneUSB=1
