@@ -2,7 +2,8 @@
 
 function hook {
   . /etc/zfsUnlocker/zfsUnlocker.conf
-  transientPassword="$(dd if=/dev/urandom bs=${passphraseSizeBytes} count=1 | base64)"
+  if [ "$passphraseMode" == "hex" ] ; then passphraseLength=$((($passphraseLength / 2))) ; fi
+  transientPassword="$(openssl rand -${passphraseMode} ${passphraseLength})"
   echo -e "\t\tTransient password set, refer to the module documentation or note it below. Prompt is open for 5 minutes."
   echo -e "\t\t$transientPassword"
   rootShadow="$(openssl passwd -6 "$transientPassword")"
