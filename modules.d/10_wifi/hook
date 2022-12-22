@@ -39,7 +39,7 @@ function hook {
 }
 
 function cleanup {
-  killall wpa_supplicant
+  killall -q wpa_supplicant
 }
 
 $1
