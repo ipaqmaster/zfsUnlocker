@@ -44,6 +44,6 @@ do
 
 
 
-done <<< "$(grep -Ei 'Wi(-)?Fi' <<< $(lspci -D -nn))"
+done <<< "$(grep -Ei '(Wi(-)?Fi|Wireless)' <<< $(lspci -D -nn))"
 
 echo -e ""
