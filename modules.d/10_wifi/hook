@@ -42,7 +42,6 @@ function hook {
        PSK="$( cut -f2 -d':' <<< ${wirelessNetworks[${network}]})"
       wpa_supplicant_configuration+="$(echo -e "\nnetwork={\n  ssid=\"${SSID}\"\n  psk=${PSK}\n}")"
     done
-    echo "${wpa_supplicant_configuration}"
     echo -ne '\t\t'; wpa_supplicant -B ${interfaceArgs} -c <(echo "${wpa_supplicant_configuration}") 
 }
 
