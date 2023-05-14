@@ -10,7 +10,7 @@ function hook {
     return 1
   fi
 
-  if [ -z "$SSID" ]
+  if [ -z "$wirelessNetworks" ]
   then
     echo -e "\t\tNo SSID set in zfsUnlocker.conf, skipping module."
     return 1
@@ -35,7 +35,15 @@ function hook {
     if [ -z "$wirelessInterfaces" ] ; then echo -e "\t\tNo wireless interfaces seen. Did the drivers add correctly?" ; exit 1 ; fi
     for wirelessInterface in $wirelessInterfaces ; do interfaceArgs+="-i $wirelessInterface " ; done
 
-    echo -ne '\t\t'; wpa_supplicant -B ${interfaceArgs} -c <(echo -e "network={\n  ssid=\"${SSID}\"\n  psk=${PSK}\n}") 
+    # Build configuration
+    for network in ${!wirelessNetworks[@]}
+    do
+      SSID="$( cut -f1 -d':' <<< ${wirelessNetworks[${network}]})"
+       PSK="$( cut -f2 -d':' <<< ${wirelessNetworks[${network}]})"
+      wpa_supplicant_configuration+="$(echo -e "\nnetwork={\n  ssid=\"${SSID}\"\n  psk=${PSK}\n}")"
+    done
+    echo "${wpa_supplicant_configuration}"
+    echo -ne '\t\t'; wpa_supplicant -B ${interfaceArgs} -c <(echo "${wpa_supplicant_configuration}") 
 }
 
 function cleanup {

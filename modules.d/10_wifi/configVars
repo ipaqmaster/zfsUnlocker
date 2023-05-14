@@ -1,6 +1,5 @@
-  # Wireless network to connect to (If var empty/unset, module skips.)
-  # Generate the below using wpa_passphrase command.
+  # List of wireless networks to connect to as comma delimited SSID and PSK combinations.
+  # If var empty/unset, module skips.
+  # Generate PSKs using wpa_passphrase command.
 
-SSID=""
-PSK=""
-
+#wirelessNetworks=("My AP:pskpskpsk" "Another SSID:pskpskpsk")
