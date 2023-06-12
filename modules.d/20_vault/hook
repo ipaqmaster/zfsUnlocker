@@ -5,14 +5,37 @@ function kernelArgumentSpiel {
   echo -e "\t\tCan be used to override vault vars without initramfs regeneration."
 }
 
+function curler {
+  # Try to work around sealed or unreachable cluster members.
+  # '--retry' and Co don't establish new connections - preventing RRDNS from rerolling.
+
+  args="$@"
+  retryAttempts=10 attemptNumber=0
+  sealedError='{"errors":["Vault is sealed"]}'
+
+  while [[ $attemptNumber -lt $retryAttempts ]]
+  do
+    (((attemptNumber++)))
+    #echo ${attemptNumber} >&2
+    resultJson=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")    ; curlReturnCodeJson=$?
+    if [ "${resultJson}" != "${sealedError}" ]
+    then
+      break
+    else
+      [ $attemptNumber -eq 1 ] && echo -e "\t\tHit sealed vault... retrying" >&2
+    fi
+  done
+  echo $resultJson
+}
+
 function checkVaultTokenValid {
     # Do a self-lookup API call before waiting any time
   URL="https://${vaultHost}/v1/auth/token/lookup-self"
-  resultJson=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")    ; curlReturnCodeJson=$?
+  resultJson=$(curler -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")    ; curlReturnCodeJson=$?
 
   if [ "$resultJson" == '{"errors":["Vault is sealed"]}' ]
   then
-    echo -e "\t\tThe remote vault server claims to be sealed."
+    echo -e "\t\tThe vault address provided claims to be sealed."
     echo -e "\t\tCannot continue until its unsealed."
     return 1
   elif [ "$resultJson" == '{"errors":["permission denied"]}' ]
@@ -37,13 +60,13 @@ function checkVaultTokenValid {
 
 function attemptVaultRead {
     URL="https://${vaultHost}/v1/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
-    result=$(curl --fail -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")
+    result=$(curler --fail -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")
     curlReturnCodeJson=$?
 
     if [ $curlReturnCodeJson -eq 22 ]
     then
         # Try again to catch the error
-      responseCode=$(curl --fail -H "X-Vault-Token: $vaultToken" -X GET "$URL" 2>&1 | grep -oP '[0-9]{3}$')
+      responseCode=$(curler --fail -H "X-Vault-Token: $vaultToken" -X GET "$URL" 2>&1 | grep -oP '[0-9]{3}$')
       if [ "$responseCode" -eq 403 ]
       then
         echo -e "\t\tVault returned a 403 for ${lockedDataset}. Token may not have access to the secret"
