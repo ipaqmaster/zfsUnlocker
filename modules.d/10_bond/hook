@@ -1,0 +1,91 @@
+#!/bin/bash
+
+function hook {
+
+  if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
+  then
+    . /etc/zfsUnlocker/zfsUnlocker.conf
+  else
+    echo -e "\t\t/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping module."
+    return 1
+  fi
+
+   # Track our bond peers so we don't accidentally bond two different interface pairs together.
+  declare -A -g peers
+
+  function testBonding {
+    declare -A -g peers
+    ip link set $1 up
+    result=$(timeout ${tcpdumpTimeout} tcpdump -i ${1} -nnevvvv --immediate-mode -l ether proto 0x8809 2>/dev/null |grep 'Actor Information TLV' -A1 --line-buffered | grep -m1 -oE '([a-f0-9]|:){17}' --line-buffered) ; exitCode=$?
+    ip link set $1 down
+  
+    if [ ${exitCode} -eq 0 ]
+    then
+      echo -e "\t\tLACP detected on ${1}. Added to bond group ${result}."
+      result=$(tr -d ':' <<< ${result})
+      echo "${result} ${intbasename}" >> /tmp/10_bond_results
+    else
+      echo -e "\t\tNo LACPs seen on ${1}"
+    fi
+  }
+
+  if [ "$createBonds" == 1 ]
+  then
+    echo -en "\t\tChecking interfaces for LACP..."
+
+    for interface in /sys/class/net/*
+    do
+      unset path
+      unset intbasename
+      intbasename=$(basename $interface)
+      path=$(readlink $interface)
+      [ ! -h ${interface} ]      && continue # Ignore non-symlinks
+      [[ "$path" =~ "virtual" ]] && continue # Ignore virtual links
+      [[ "$intbasename" =~ ^w ]] && continue # Ignore wireless links
+      echo -ne "[${intbasename}] "
+      testBonding $intbasename &
+    done
+    echo ""
+
+      # Wait for the tcpdump threads to wrap up before continuing.
+      # This asynchronous packet capturing lets multiple interfaces receive an LACP packet at the same time.
+    sleep 1
+    until ! ps | grep -qs [t]cpdump
+    do
+      sleep 1
+    done
+
+      # Load the results from tmp into the array.
+      # Background processes can't update global arrays. This is a workaround.
+    while read peerInts
+    do 
+      array=(${peerInts})
+      peers[${array[0]}]+="${array[1]} "
+    done < /tmp/10_bond_results
+    
+    for peer in ${!peers[@]}
+    do
+      bondInc=0
+      while [ -h /sys/class/net/bond${bondInc} ]; do (((bondInc++))); done # Be courteous of any other early bond interfaces
+      ourBondInterfaces+="bond${bondInc} "
+      ip link add bond${bondInc} type bond miimon 100 mode 802.3ad
+      ip link set bond${bondInc} up
+      for link in ${peers[${peer}]}
+      do
+        ip link set ${link} master bond${bondInc}
+        echo -e "\t\t${link} bonded and ready"
+      done
+    done
+
+  fi
+}
+
+function cleanup {
+  for bond in ${ourBondInterfaces}
+  do
+    ip link del ${bond}
+  done
+}
+
+$1
+

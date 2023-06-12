@@ -8,33 +8,29 @@ function hook {
 
   echo -e "\t\tGetting an IP..."
 
-#  interfaces="$(find /sys/class/net -mindepth 1)"
-#
-#  for interface in $interfaces # Look for UP interfaces to try
-#  do
-#    if grep -q -i 'up' ${interface}/operstate
-#    then
-#      interfaceShort="$(basename $interface)"
-#      echo -e "\t\tTrying DHCP on UP interface: $interfaceShort"
-#      upInterfaces+="$interfaceShort "
-#    fi
-#  done 
-# 
-# 
-#  for upInterface in $upInterfaces # Try up interfaces until we get an IP or bust.
-#  do
-    if dhclient $forceInterface -v >/dev/null 2>&1
+  # Figure out if there are any interfaces with a master who shouldn't be directly DHCP'd on.
+
+  for interface in /sys/class/net/*
+    do
+      intbasename=$(basename $interface)
+      [ ! -h ${interface} ]      && continue # Ignore non-symlinks
+      [ -h ${interface}/master ] && continue # Ignore non-master links
+      echo -e "\t\tAdded interface $intbasename to dhclient pool"
+      echo "interface\"${intbasename}\" {}" >> /etc/dhclient.conf
+
+    done
+    echo ""
+
+  if dhclient $forceInterface -v >/dev/null 2>&1
+  then
+    if [ -f '/var/lib/dhclient/dhclient.leases' ]
     then
-      if [ -f '/var/lib/dhclient/dhclient.leases' ]
-      then
-        myAddress="$(grep -m1 -o 'fixed-address.*' /var/lib/dhclient/dhclient.leases |grep -Eo '([0-9]+|\.)+')"
-        [ -n "$myAddress" ] && echo -e "\t\tGot address $myAddress"
-#	break
-      fi
-    else
-      echo -e "\t\tCouldn't get an IP, manual unlock may be required."
+      myAddress="$(grep -m1 -o 'fixed-address.*' /var/lib/dhclient/dhclient.leases |grep -Eo '([0-9]+|\.)+')"
+      [ -n "$myAddress" ] && echo -e "\t\tGot address $myAddress"
     fi
-#  done
+  else
+    echo -e "\t\tCouldn't get an IP, manual unlock may be required."
+  fi
 
 }
 

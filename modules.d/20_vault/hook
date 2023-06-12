@@ -17,7 +17,7 @@ function curler {
   do
     (((attemptNumber++)))
     #echo ${attemptNumber} >&2
-    resultJson=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")    ; curlReturnCodeJson=$?
+    resultJson=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL") ; curlReturnCodeJson=$?
     if [ "${resultJson}" != "${sealedError}" ]
     then
       break

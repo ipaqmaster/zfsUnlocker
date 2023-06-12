@@ -1,0 +1,4 @@
+  # Search for bond traffic on links and try to create bond interfaces before DHCPing?
+createBonds=0
+  # LACP PDUs are sent every 30 seconds as most.
+tcpdumpTimeout=35
