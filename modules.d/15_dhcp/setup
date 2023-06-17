@@ -1,6 +1,21 @@
-map add_module igb \
-               r8169 \
-               e1000e
+function mapEthernetDrivers {
+  declare -a drivers
+  ethernetCards=($(lspci -D |grep -i eth | cut -f1 -d' '))
+
+  for pciDevice in ${ethernetCards[*]}
+  do
+    unset driver
+    driver="$(basename $(readlink -f "/sys/bus/pci/devices/${pciDevice}/driver"))"
+    if ! [[ " ${drivers[*]} " =~ " ${driver} " ]]
+    then
+      echo -e "\t15_dhcp module: Detected active Ethernet driver ${driver}, added to initramfs."
+      drivers+=(${driver})
+      map add_module ${driver}
+    fi
+  done
+}
+
+mapEthernetDrivers
 
 map add_binary dhclient \
                grep
