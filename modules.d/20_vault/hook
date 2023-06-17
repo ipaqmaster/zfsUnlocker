@@ -1,89 +1,94 @@
 #!/bin/bash
 
+sealedError='{"errors":["Vault is sealed"]}'
+badTokenError='{"errors":["permission denied"]}'
+validTokenPermissionDeniedError='{"errors":["1 error occurred:\n\t* permission denied\n\n"]}'
+blankResponseError='{"errors":[]}'
+curlErrorRegex='^curl:.*$'
+
 function kernelArgumentSpiel {
   echo -e "\t\tKernel arguments: VAULTHOSTOVERRIDE=xxx and VAULTTOKENOVERRIDE=xxx"
   echo -e "\t\tCan be used to override vault vars without initramfs regeneration."
+}
+
+function curlErrorHandler {
+  goalText="${1}"
+  successText="${2}"
+
+  if [ ${curlReturnCode} -eq 0 ] && jq -e .request_id <<< ${response} 2>&1 >/dev/null
+  then
+    echo -e "${successText}"
+    return ${curlReturnCode}
+  elif [ "${response}" == "${blankResponseError}" ]
+  then
+    echo -e "\t\tVault returned a blank response for ${lockedDataset}."
+    echo -e "\t\tYou have access to read this secret path but it may not exist."
+    return 1
+  elif [ "${response}" == "${validTokenPermissionDeniedError}" ]
+  then
+    echo -e "\t\tVault claims our token doesn't have permission to read the secret for ${lockedDataset}."
+    echo -e "\t\tPlease consult your policies."
+    return 1
+  elif [ "${response}" == "${sealedError}" ]
+  then
+    echo -e "\t\tThe vault address provided claims to be sealed."
+    echo -e "\t\tCannot continue until its unsealed."
+    return 1
+  elif [ "${response}" == "${badTokenError}" ]
+  then
+    echo -e "\t\tVault server reachable but trying to lookup own token resulted in a permission error."
+    echo -e "\t\tToken may be invalid. If valid, policies may be too tight."
+    kernelArgumentSpiel
+    return 1
+  elif [[ "$(head -n1 <<< ${response})" =~ ${curlErrorRegex} ]] # If we're dealing with a cURL error
+  then
+    echo -e "\t\tcURL threw an error trying to ${goalText} against ${vaultHost}"
+    echo
+    sed -E -e 's/^/\t\t\t/g' <<< "${response}" # Share cURL's output
+  else # If we don't know what we're looking at
+    echo -e "\t\tSomething else went wrong trying to ${goalText} against ${vaultHost} [cURL exit code ${curlReturnCode}]"
+  fi
+
 }
 
 function curler {
   # Try to work around sealed or unreachable cluster members.
   # '--retry' and Co don't establish new connections - preventing RRDNS from rerolling.
 
-  args="$@"
-  retryAttempts=10 attemptNumber=0
-  sealedError='{"errors":["Vault is sealed"]}'
+  [ -n "${MODE}" ] && METHOD="-X ${MODE}"
 
-  while [[ $attemptNumber -lt $retryAttempts ]]
+  retryAttempts=10 attemptNumber=0
+
+  while [[ ${attemptNumber} -lt ${retryAttempts} ]]
   do
     (((attemptNumber++)))
     #echo ${attemptNumber} >&2
-    resultJson=$(curl -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL") ; curlReturnCodeJson=$?
-    if [ "${resultJson}" != "${sealedError}" ]
+    #echo "curl -q -sS ${METHOD} -H \"X-Vault-Token: ${vaultToken}\" \"${URL}\" 2>&1"
+    response="$(curl -q -sS ${METHOD} -H "X-Vault-Token: ${vaultToken}" "${URL}" 2>&1)" ; curlReturnCode=$?
+    if [ "${response}" == "${sealedError}" ]
     then
-      break
+      [ ${attemptNumber} -eq 1 ] && echo -e "\t\tHit sealed vault... retrying" >&2
     else
-      [ $attemptNumber -eq 1 ] && echo -e "\t\tHit sealed vault... retrying" >&2
+      break
     fi
   done
-  echo $resultJson
+
+  curlErrorHandler "${1}" "${2}" # Check for problems before continuing
+  return ${?}
 }
 
 function checkVaultTokenValid {
     # Do a self-lookup API call before waiting any time
-  URL="https://${vaultHost}/v1/auth/token/lookup-self"
-  resultJson=$(curler -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")    ; curlReturnCodeJson=$?
-
-  if [ "$resultJson" == '{"errors":["Vault is sealed"]}' ]
-  then
-    echo -e "\t\tThe vault address provided claims to be sealed."
-    echo -e "\t\tCannot continue until its unsealed."
-    return 1
-  elif [ "$resultJson" == '{"errors":["permission denied"]}' ]
-  then
-    echo -e "\t\tVault server reachable but permission denied trying to lookup own token."
-    echo -e "\t\tToken may be invalid or applied policy may be too tight."
-    kernelArgumentSpiel
-    return 1
-  elif [ $curlReturnCodeJson -eq 6 ]
-  then
-    echo -e "\t\tcURL failed to resolve the remote host. Networking may be down."
-    return $curlReturnCodeJson
-  elif [ $curlReturnCodeJson -gt 0 ]
-  then
-    echo -e "\t\tSomething else went wrong with our cURL attempt to verify token validity [cURL exit code $curlReturnCodeJson]"
-  else
-    echo -e "\t\tAccessing vault [$vaultHost] successful, TOKEN IS VALID."
-  fi
-
-  return $curlReturnCodeJson
+  URL="${baseURL}/auth/token/lookup-self"
+  MODE=GET
+  curler "validate the token" "\t\tAccessing vault [${vaultHost}] successful, Token is valid"
+  return ${?}
 }
 
 function attemptVaultRead {
-    URL="https://${vaultHost}/v1/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
-    result=$(curler --fail -sq -H "X-Vault-Token: $vaultToken" -X GET "$URL")
-    curlReturnCodeJson=$?
-
-    if [ $curlReturnCodeJson -eq 22 ]
-    then
-        # Try again to catch the error
-      responseCode=$(curler --fail -H "X-Vault-Token: $vaultToken" -X GET "$URL" 2>&1 | grep -oP '[0-9]{3}$')
-      if [ "$responseCode" -eq 403 ]
-      then
-        echo -e "\t\tVault returned a 403 for ${lockedDataset}. Token may not have access to the secret"
-      elif [ "$responseCode" -eq 404 ]
-      then
-        echo -e "\t\tVault returned a 404 for ${lockedDataset}. The secret may not exist?"
-      else
-      echo -e "\t\tVault returned an error trying to read your unlock passphrase. Does the kv secret exist?"
-      echo $vaultHost $vaultToken
-      fi
-      return 1
-    elif [ "$result" == '{"errors":["permission denied"]}' ]
-    then
-      echo -e "\t\tPermission Denied trying to read vault secret for ${dataset} with URL: $URL"
-    else
-      vaultPassphraseResult="$(echo $result | jq -r '.data.data.passphrase')"
-    fi
+  URL="${baseURL}/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
+  curler "Read the kv secret" "\t\tSuccessfully read secret data"
+  return ${?}
 }
 
 function hook {
@@ -97,54 +102,59 @@ function hook {
   fi
 
     # Check for kernel argument overrides and use them if available.
-  if [ -n "$VAULTHOSTOVERRIDE" ] || [ -n "$VAULTTOKENOVERRIDE" ]
+  if [ -n "${VAULTHOSTOVERRIDE}" ] || [ -n "${VAULTTOKENOVERRIDE}" ]
   then
     echo -e "\t\tCustom vault args provided in kernel arguments, using those..."
-    [ -n "$VAULTHOSTOVERRIDE" ]  && vaultHost=$VAULTHOSTOVERRIDE  && echo -e "\t\tSet vault host from cmdline"
-    [ -n "$VAULTTOKENOVERRIDE" ] && vaultToken=$VAULTTOKENOVERRIDE && echo -e "\t\tSet vault token from cmdline"
+    [ -n "${VAULTHOSTOVERRIDE}" ]  && vaultHost=${VAULTHOSTOVERRIDE}   && echo -e "\t\tSet vault host from cmdline"
+    [ -n "${VAULTTOKENOVERRIDE}" ] && vaultToken=${VAULTTOKENOVERRIDE} && echo -e "\t\tSet vault token from cmdline"
     chmod 440 /proc/cmdline # Best effort protection from regular processes
     echo -e "\t\t/proc/cmdline permissions switched to 440 to help protect token."
   fi
 
-  if [ $vaultPromptForMissingInfo -eq 1 ] && [ -z "$vaultToken" -o -z "$vaultHost" ]
+  if [ ${vaultPromptForMissingInfo} -eq 1 ] && [ -z "${vaultToken}" -o -z "${vaultHost}" ]
   then
     echo -e "\t\tPrompting enabled and I have no keys, prompting for extra details..."
-    [ -z "$vaultToken" ] && read -sp "Vault Token:" vaultToken
-    [ -z "$vaultHost" ]  && read -sp "Vault Host:" vaultHost
+    [ -z "${vaultToken}" ] && read -sp "Vault Token:" vaultToken
+    [ -z "${vaultHost}" ]  && read -sp "Vault Host:" vaultHost
   fi
 
-  if [ -z "$vaultToken" ] || [ -z "$vaultHost"  ]
+  if [ -z "${vaultToken}" ] || [ -z "${vaultHost}"  ]
   then
     echo -e "\t\tNot enough info to run vault hook"
-    [ -z "$vaultHost" ]  && echo -e "\t\tVault host missing"
-    [ -z "$vaultToken" ] && echo -e "\t\tVault token missing"
+    [ -z "${vaultHost}" ]  && echo -e "\t\tVault host missing"
+    [ -z "${vaultToken}" ] && echo -e "\t\tVault token missing"
     kernelArgumentSpiel
     return 1
   fi
 
-    checkVaultTokenValid || exit 1
+  baseURL="https://${vaultHost}/v1"
+
+  checkVaultTokenValid || exit 1
 
     # Try unlocking all datasets with an 'unavailable' keystatus, but root first.
 
-  if [ -n "$testDataset" ]
+  if [ -n "${testDataset}" ]
   then 
-    lockedDatasets="$testDataset"
+    lockedDatasets="${testDataset}"
   else
-    lockedDatasets="$dataset $(zfs get -H -o name,value keystatus 2>/dev/null | grep unavailable | grep -v '@' | cut -f1)"
+    lockedDatasets="${dataset} $(zfs get -H -o name,value keystatus 2>/dev/null | grep unavailable | grep -v '@' | cut -f1)"
   fi
 
-  for lockedDataset in $lockedDatasets
+  for lockedDataset in ${lockedDatasets}
   do
-    if ! zfs get -H -o name,value keystatus ${lockedDataset} 2>/dev/null | grep unavailable >/dev/null 2>&1 && [ ! -n "$testDataset" ] ; then continue ; fi # If not still locked, skip
-    [ -n "$testDataset" ] && echo -e "\t\tAttempting unlock of: $lockedDataset"
+      # If unlocked and not a test run, skip
+    grep -qs available <<< $(zfs get -H -o name,value keystatus ${lockedDataset} 2>/dev/null) && [ -z "${testDataset}" ] && continue
+    [ -n "${testDataset}" ] && echo -e "\t\tAttempting unlock of: ${lockedDataset}"
 
     attemptVaultRead || exit 1
+    vaultPassphraseResult="$(jq -e -r '.data.data.passphrase' <<< ${response})" ; jqParseExitCode=$?
+    [ ${jqParseExitCode} -gt 0 ] && { echo -e "\t\tFailed to read a passphrase from the result" ; exit 1 ;}
 
-    if [ -n "$testDataset" ]
+    if [ -n "${testDataset}" ]
     then
-      echo -e "\t\t$(wc -m <<<"$vaultPassphraseResult") char length passphrase successfully found for $testDataset"
+      echo -e "\t\tPassphrase of $(wc -m <<<"${vaultPassphraseResult}") length found for ${testDataset}"
     else
-      eval yes "$vaultPassphraseResult" | zfs load-key -a # Try findings
+      eval yes "${vaultPassphraseResult}" | zfs load-key -a # Try findings
     fi
   done
 }
@@ -159,16 +169,16 @@ function cleanup {
  : 
 }
 
-if [ "$1" == 'test' ]
+if [ "${1}" == 'test' ]
 then
   echo "Entering test mode."
 
-  if [ "$2" ]
+  if [ "${2}" ]
   then
-    testDataset=$2 hook
+    testDataset=${2} hook
   else
     echo "Please provide a dataset name as an argument."
   fi
 else
-  $1
+  ${1}
 fi
