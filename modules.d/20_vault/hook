@@ -87,7 +87,7 @@ function checkVaultTokenValid {
 
 function attemptVaultRead {
   URL="${baseURL}/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
-  curler "Read the kv secret" "\t\tSuccessfully read secret data"
+  curler "Read the kv secret" "\t\t\tSuccessfully read secret data"
   return ${?}
 }
 
@@ -142,20 +142,28 @@ function hook {
 
   for lockedDataset in ${lockedDatasets}
   do
+
       # If unlocked and not a test run, skip
-    grep -qs available <<< $(zfs get -H -o name,value keystatus ${lockedDataset} 2>/dev/null) && [ -z "${testDataset}" ] && continue
+    grep -qsP '\tavailable' <<< $(zfs get -H -o name,value keystatus ${lockedDataset} 2>/dev/null) && [ -z "${testDataset}" ] && continue
+
+    echo -e "\n\t\tUnlocking ${lockedDataset}"
     [ -n "${testDataset}" ] && echo -e "\t\tAttempting unlock of: ${lockedDataset}"
 
     attemptVaultRead || exit 1
     vaultPassphraseResult="$(jq -e -r '.data.data.passphrase' <<< ${response})" ; jqParseExitCode=$?
     [ ${jqParseExitCode} -gt 0 ] && { echo -e "\t\tFailed to read a passphrase from the result" ; exit 1 ;}
 
-    if [ -n "${testDataset}" ]
+    [ -n "${testDataset}" ] && echo -e "\t\tPassphrase of $(wc -m <<<"${vaultPassphraseResult}") length found for ${testDataset}"
+
+    if result=$(yes "${vaultPassphraseResult}" | zfs load-key ${lockedDataset} 2>&1)
     then
-      echo -e "\t\tPassphrase of $(wc -m <<<"${vaultPassphraseResult}") length found for ${testDataset}"
+        echo -e "\t\t\tSuccessfully unlocked ${lockedDataset}"
     else
-      eval yes "${vaultPassphraseResult}" | zfs load-key -a # Try findings
-    fi
+        sed 's/^/\t\t\t/g' <<<${result}
+        fi
+
+      # Quietly try the passphrase on other datasets too
+    yes "${vaultPassphraseResult}" | zfs load-key -a >/dev/null 2>&1
   done
 }
 
