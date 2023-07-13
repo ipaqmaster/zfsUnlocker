@@ -107,24 +107,40 @@ zfs_mount_handler () {
         fi
     fi
 
-    local node="$1"
+    local newrootDir="$1" # Work off desired mountdir as advised by /init to $mount_handler function.
     local rootmnt=$(zfs get -H -o value mountpoint "${ZFS_DATASET}")
-    local tab_file="${node}/etc/fstab"
     local zfs_datasets="$(zfs list -H -o name -t filesystem -r ${ZFS_DATASET})"
 
-    # Mount the root, and any child datasets
+    # Handle unlocking the root and any child datasets, but only mount the root now.
     for dataset in ${zfs_datasets}; do
         mountpoint=$(zfs get -H -o value mountpoint "${dataset}")
         canmount=$(zfs get -H -o value canmount "${dataset}")
-        # skip dataset if cannot mount or intentionally no mountpoint
-        [ ${canmount} = "off" -o ${mountpoint} = "none" ] && continue
+
+        # Skip datasets where canmount=off and mountpoint=none or unset.
+        [ ${canmount} = "off" -o ${mountpoint} = "none" -o ${mountpoint} = "-" ] && continue
+
         # Check for encryption on the dataset and fire the modules if so.
         zfs_decrypt_fs "${dataset}"
-        # Handle legacy mounts a little differently
-        if [ ${mountpoint} = "legacy" ]; then
-            mount -t zfs -o "${opt}" "${dataset}" "${node}${mnt}"
+
+        # At this point stop processing datasets we don't intend to mount as the rootfs.
+
+        if [ ${mountpoint} = "legacy" ]
+        then
+          mountOpts="${opt}"
         else
-            mount -t zfs -o "zfsutil,${rwopt_exp}" "${dataset}" "${node}/${mountpoint##${rootmnt}}"
+          mountOpts="zfsutil,${rwopt_exp}"
+        fi
+
+        if [ "${dataset}" == "${ZFS_DATASET}" ] # If this is the root to be
+        then
+          mount -t zfs -o "${mountOpts}" "${dataset}" "${newrootDir}"
+        elif [ ${mountpoint} = "legacy" ]
+        then
+          [ ${mountpoint} = "legacy" ] && echo "Leaving legacy mount for host fstab to handle: ${dataset}"
+          continue
+        else
+          echo "Mounting $dataset under rootfs"
+          mount -t zfs -o "${mountOpts}" "${dataset}" "${newrootDir}${mountpoint}"
         fi
     done
 }
