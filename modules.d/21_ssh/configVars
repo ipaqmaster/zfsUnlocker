@@ -7,3 +7,6 @@ passphraseMode=hex
 
 # How long (roughly) should the temporary root ssh passphrase be?
 passphraseLength=12
+
+# How long should the timeout be before ssh stops listening?
+sshTimeout=1h

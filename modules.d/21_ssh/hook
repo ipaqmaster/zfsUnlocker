@@ -10,7 +10,7 @@ function hook {
   [ ! -f '/etc/passwd' ] && echo 'root:x:0:0::/root:/bin/bash' > /etc/passwd
   [ ! -f '/etc/shadow' ] && echo "root:${rootShadow}:1::::::"  > /etc/shadow
   mkdir /dev/pts ; mount -t devpts devpts /dev/pts
-  timeout 300 dropbear -E -F -R -c '. /etc/zfsUnlocker/modules.d/21_ssh/hook' &
+  timeout ${sshTimeout} dropbear -E -F -R -c '. /etc/zfsUnlocker/modules.d/21_ssh/hook' &
 }
 
 function tryPassword {
