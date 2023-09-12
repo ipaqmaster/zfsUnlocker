@@ -15,7 +15,7 @@ function hook {
       intbasename=$(basename $interface)
       [ ! -h ${interface} ]      && continue # Ignore non-symlinks
       [ -h ${interface}/master ] && continue # Ignore non-master links
-      echo -e "\t\tAdded interface $intbasename to dhclient pool"
+      echo -e "\t\tAdded to dhclient interface list: ${intbasename}"
       echo "interface\"${intbasename}\" {}" >> /etc/dhclient.conf
 
     done
