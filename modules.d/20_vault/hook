@@ -180,6 +180,8 @@ function cleanup {
 if [ "${1}" == 'test' ]
 then
   echo "Entering test mode."
+  echo "Reading existing /proc/cmdline arguments..."
+  for keyValue in $(</proc/cmdline) ; do eval $keyValue 2>/dev/null ; done
 
   if [ "${2}" ]
   then
