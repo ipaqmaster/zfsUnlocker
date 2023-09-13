@@ -7,7 +7,7 @@ blankResponseError='{"errors":[]}'
 curlErrorRegex='^curl:.*$'
 
 function kernelArgumentSpiel {
-  echo -e "\t\tKernel arguments: VAULTHOSTOVERRIDE=xxx and VAULTTOKENOVERRIDE=xxx"
+  echo -e "\t\tKernel arguments: VAULT_ADDR=xxx & VAULT_TOKEN=xxx"
   echo -e "\t\tCan be used to override vault vars without initramfs regeneration."
 }
 
@@ -102,18 +102,26 @@ function hook {
   fi
 
     # Check for kernel argument overrides and use them if available.
-  if [ -n "${VAULTHOSTOVERRIDE}" ] || [ -n "${VAULTTOKENOVERRIDE}" ]
+  if [ -n "${VAULTHOSTOVERRIDE:-${VAULT_ADDR}}${VAULTTOKENOVERRIDE:-${VAULT_TOKEN}}" ]
   then
     echo -e "\t\tCustom vault args provided in kernel arguments, using those..."
-    [ -n "${VAULTHOSTOVERRIDE}" ]  && vaultHost=${VAULTHOSTOVERRIDE}   && echo -e "\t\tSet vault host from cmdline"
-    [ -n "${VAULTTOKENOVERRIDE}" ] && vaultToken=${VAULTTOKENOVERRIDE} && echo -e "\t\tSet vault token from cmdline"
+    if [ -n "${VAULTHOSTOVERRIDE:-${VAULT_ADDR}}"   ]
+    then
+      vaultHost=${VAULTHOSTOVERRIDE:-${VAULT_ADDR}}
+      echo -e "\t\tSet from cmdline: VAULT_ADDR"
+    fi
+    if [ -n "${VAULTTOKENOVERRIDE:-${VAULT_TOKEN}}" ]
+    then
+      vaultToken=${VAULTTOKENOVERRIDE:-${VAULT_TOKEN}}
+      echo -e "\t\tSet from cmdline: VAULT_TOKEN"
+    fi
     chmod 440 /proc/cmdline # Best effort protection from regular processes
     echo -e "\t\t/proc/cmdline permissions switched to 440 to help protect token."
   fi
 
   if [ ${vaultPromptForMissingInfo} -eq 1 ] && [ -z "${vaultToken}" -o -z "${vaultHost}" ]
   then
-    echo -e "\t\tPrompting enabled and I have no keys, prompting for extra details..."
+    echo -e "\t\tUnable to determine Vault details and prompting is enabled."
     [ -z "${vaultToken}" ] && read -sp "Vault Token:" vaultToken
     [ -z "${vaultHost}" ]  && read -sp "Vault Host:" vaultHost
   fi
