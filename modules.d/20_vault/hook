@@ -56,9 +56,9 @@ function kernelArgumentSpiel {
 
 function curlErrorHandler {
 
-  if [ ${curlReturnCode} -eq 0 ] && jq -e .request_id <<< ${response} 2>&1 >/dev/null
+  if [ ${curlReturnCode} -eq 0 ] && jq -e .request_id <<< ${response} >/dev/null 2>&1
   then
-    echo -e "${successText}"
+    [ -n "${successText}" ] && echo -e "${successText}"
     return ${curlReturnCode}
   elif [ "${response}" == "${blankResponseError}" ]
   then
@@ -168,9 +168,9 @@ function getTokenFromApprole {
 
   if VAULT_TOKEN=$(jq -e -r .auth.client_token <<< "${response}")
   then
-    echo "Got a vault token successfully..."
+    echo -e "\t\tGot a vault token successfully..."
   else
-    echo "Failed to get a vault token, check approle"
+    echo -e "\t\tFailed to get a vault token, check approle"
     exit 1
   fi
 }
@@ -185,47 +185,44 @@ function lockdownCmdline {
     fi
 }
 
-function prepare {
+function tryToken {
   if [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ]
-  then
-    echo -e "\n\t\tTesting Addr+Token in config..."
+  then  
     if checkVaultTokenValid # Check config's variables
     then
-      echo -e "\t\tzfsUnlocker config token is valid. Continuing..."
+      echo -e "\t\tToken valid"
       return
     else
       unset VAULT_TOKEN
     fi
   fi
+}
 
-  evalCmdline # Set variables from /proc/cmdline
-
-  if [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ]
-  then
-    echo -e "\n\t\tTesting cmdline token..."
-    if checkVaultTokenValid
-    then
-      return
-    else
-      unset VAULT_TOKEN
-    fi
-  fi
-
+function tryApprole {
     # Check for an approle role_id and secret_id in kernel arguments to try.
   if [ -n "${role_id}" ] && [ -n "${secret_id}" ]
   then
-    echo -e "\n\t\tTesting cmdline approle..."
     getTokenFromApprole
     if [ -n "${VAULT_TOKEN}" ] && checkVaultTokenValid
       then
-        echo -e "\t\tValid token set from Approle"
         lockdownCmdline
         return
       else
-        echo -e "\t\tUnable to set token from Approle"
+        echo -e "\t\tApprole valid"
+        unset role_id secret_id
     fi
   fi
+}
 
+function prepare {
+
+  [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ] && echo -e "\n\t\tTesting config token..."    &&  tryToken   && return
+  [ -n "${role_id}" ]    && [ -n "${secret_id}" ]   && echo -e "\n\t\tTesting config approle..."  &&  tryApprole && return
+
+  evalCmdline # Set variables from /proc/cmdline
+
+  [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ] && echo -e "\n\t\tTesting cmdline token..."   &&  tryToken   && return
+  [ -n "${role_id}" ]    && [ -n "${secret_id}" ]   && echo -e "\n\t\tTesting cmdline approle..." &&  tryApprole && return
 
   kernelArgumentSpiel
 }
@@ -239,7 +236,6 @@ function hook {
     echo "\t\t/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping module."
     return 1
   fi
-
 
   prepare # Enumerate options and cmdline looking for a valid token.
   
