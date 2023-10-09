@@ -1,5 +1,7 @@
-vaultHost=''                            # fqdn of vault address.
-vaultToken=''                           # This machine's token.
+VAULT_ADDR=''                           # Vault server FQDN
+VAULT_TOKEN=''                          # Pre-issued token for this host.
+role_id=''                              # An approle ID     for token generation
+secret_id=''                            # An approle Secret for token generation
 vaultKvEngineName='kv'                  # default when enabling a kv engine.
 vaultRootSearchPath=data/zfs            # path in KvEngine to find keys.
 vaultKeyName=passphrase                 # What field you're after in a kv result

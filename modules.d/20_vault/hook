@@ -6,14 +6,55 @@ validTokenPermissionDeniedError='{"errors":["1 error occurred:\n\t* permission d
 blankResponseError='{"errors":[]}'
 curlErrorRegex='^curl:.*$'
 
+function evalCmdline {
+
+  for entry in $(cat /proc/cmdline | sed -e 's/VAULTHOSTOVERRIDE/VAULT_ADDR/g' -e 's/VAULTTOKENOVERRIDE/VAULT_TOKEN/g')
+  do
+    param=${entry/=*/}
+    value=${entry/*=/}
+  
+    if [[ ! "${entry}" =~ '=' ]] || [[ "${param}" =~ '.' ]] || [[ "${value}" =~ ',' ]]
+    then
+      continue # Ignore args with a literal dot (module params) or without a param=value format
+    fi
+  
+    case "$(tr '[:upper:]' '[:lower:]' <<< ${param})" in
+  
+      vault_addr)
+        export VAULT_ADDR="${value}"
+        setFromCmdline+=(VAULT_ADDR)
+        lockdownCmdline
+        ;;
+  
+      vault_token)
+        export VAULT_TOKEN="${value}"
+        setFromCmdline+=(VAULT_TOKEN)
+        lockdownCmdline
+        ;;
+  
+      role_id)
+        export role_id="${value}"
+        setFromCmdline+=(role_id)
+        lockdownCmdline
+        ;;
+  
+      secret_id)
+        export secret_id="${value}"
+        setFromCmdline+=(secret_id)
+        lockdownCmdline
+        ;;
+    esac
+  done
+
+  [[ -n "${setFromCmdline[@]}" ]] && echo -e "\n\t\tSet from kernel cmdline: ${setFromCmdline[@]}"
+}
+
 function kernelArgumentSpiel {
-  echo -e "\t\tKernel arguments: VAULT_ADDR=xxx & VAULT_TOKEN=xxx"
-  echo -e "\t\tCan be used to override vault vars without initramfs regeneration."
+  echo -e "\t\tConfig can be overridden with kernel arguments VAULT_ADDR=, VAULT_TOKEN=, role_id=, secret_id="
+  echo -e "\t\t(non-case sensitive)"
 }
 
 function curlErrorHandler {
-  goalText="${1}"
-  successText="${2}"
 
   if [ ${curlReturnCode} -eq 0 ] && jq -e .request_id <<< ${response} 2>&1 >/dev/null
   then
@@ -36,35 +77,66 @@ function curlErrorHandler {
     return 1
   elif [ "${response}" == "${badTokenError}" ]
   then
-    echo -e "\t\tVault server reachable but trying to lookup own token resulted in a permission error."
-    echo -e "\t\tToken may be invalid. If valid, policies may be too tight."
-    kernelArgumentSpiel
+    echo -e "\t\t\tVault server reachable but trying to lookup own token resulted in a permission error."
+    echo -e "\t\t\tToken may be invalid. If valid, policies may be too tight."
     return 1
   elif [[ "$(head -n1 <<< ${response})" =~ ${curlErrorRegex} ]] # If we're dealing with a cURL error
   then
-    echo -e "\t\tcURL threw an error trying to ${goalText} against ${vaultHost}"
+    echo -e "\t\tcURL threw an error trying to ${goalText} against ${VAULT_ADDR}"
     echo
     sed -E -e 's/^/\t\t\t/g' <<< "${response}" # Share cURL's output
   else # If we don't know what we're looking at
-    echo -e "\t\tSomething else went wrong trying to ${goalText} against ${vaultHost} [cURL exit code ${curlReturnCode}]"
+    echo -e "\t\tSomething else went wrong trying to ${goalText} against ${VAULT_ADDR} [cURL exit code ${curlReturnCode}]"
+    echo ${response}
   fi
+
 
 }
 
 function curler {
-  # Try to work around sealed or unreachable cluster members.
+  # Further URL preparation and multiple attempts in case a cluster member is sealed.
   # '--retry' and Co don't establish new connections - preventing RRDNS from rerolling.
+  
+  unset goalText successText METHOD postdata
+  while [ $# -gt 0 ]
+  do
+    case "$(tr '[:upper:]' '[:lower:]'<<<$1)" in
+      -goalText)
+        goalText="$2"
+        shift
+        ;;
+      -successText)
+        successText="$2"
+        shift
+        ;;
+      -method)
+        METHOD="-X${2}"
+        shift
+        ;;
+      -postdata)
+        postdata=("-d" "$2")
+        shift
+        ;;
+    esac
+    shift
+  done
 
-  [ -n "${MODE}" ] && METHOD="-X ${MODE}"
+  if [ -n "${VAULT_TOKEN}" ]
+  then
+    TokenHeader="X-Vault-Token: ${VAULT_TOKEN}"
+  else
+    unset TokenHeader
+  fi
+
+  # Prepend the https protocol if omitted from VAULT_ADDR
+  [[ ! "${URL}" =~ ^[a-z]+:// ]] && URL="https://${URL}"
 
   retryAttempts=10 attemptNumber=0
 
   while [[ ${attemptNumber} -lt ${retryAttempts} ]]
   do
     (((attemptNumber++)))
-    #echo ${attemptNumber} >&2
-    #echo "curl -q -sS ${METHOD} -H \"X-Vault-Token: ${vaultToken}\" \"${URL}\" 2>&1"
-    response="$(curl -q -sS ${METHOD} -H "X-Vault-Token: ${vaultToken}" "${URL}" 2>&1)" ; curlReturnCode=$?
+    response="$(curl -q -sS ${METHOD} -H "${TokenHeader}" "${URL}" "${postdata[@]}" 2>&1)" ; curlReturnCode=$?
     if [ "${response}" == "${sealedError}" ]
     then
       [ ${attemptNumber} -eq 1 ] && echo -e "\t\tHit sealed vault... retrying" >&2
@@ -73,22 +145,89 @@ function curler {
     fi
   done
 
-  curlErrorHandler "${1}" "${2}" # Check for problems before continuing
+  curlErrorHandler "${goalText}" "${successText}" # Check for problems before continuing
   return ${?}
 }
 
 function checkVaultTokenValid {
     # Do a self-lookup API call before waiting any time
-  URL="${baseURL}/auth/token/lookup-self"
-  MODE=GET
-  curler "validate the token" "\t\tAccessing vault [${vaultHost}] successful, Token is valid"
+  URL="${VAULT_ADDR}/v1/auth/token/lookup-self"
+  curler -method GET -goalText "validate the token" -successText "\t\tAccessing vault [${VAULT_ADDR}] successful, Token valid."
   return ${?}
 }
 
 function attemptVaultRead {
-  URL="${baseURL}/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
-  curler "Read the kv secret" "\t\t\tSuccessfully read secret data"
+  URL="${VAULT_ADDR}/v1/${vaultKvEngineName}/${vaultRootSearchPath}/${lockedDataset}"
+  curler -goalText "read the kv secret" -successText "\t\t\tSuccessfully read secret data"
   return ${?}
+}
+
+function getTokenFromApprole {
+  URL="${VAULT_ADDR}/v1/auth/approle/login"
+  curler -goalText "get token from approle" -successText "\t\t\tSuccessfully got token from approle" -postdata "{\"role_id\": \"${role_id}\", \"secret_id\":\"${secret_id}\"}"
+
+  if VAULT_TOKEN=$(jq -e -r .auth.client_token <<< "${response}")
+  then
+    echo "Got a vault token successfully..."
+  else
+    echo "Failed to get a vault token, check approle"
+    exit 1
+  fi
+}
+
+function lockdownCmdline {
+    desiredPermissions=440
+    currentPermissions=$(stat -c '%a' /proc/cmdline)
+    if [ ${desiredPermissions} -ne ${currentPermissions} ]
+    then
+      chmod 440 /proc/cmdline # Best effort protection from regular processes
+      echo -e "\t\t/proc/cmdline permissions switched to 440 to help protect sensitive data."
+    fi
+}
+
+function prepare {
+  if [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ]
+  then
+    echo -e "\n\t\tTesting Addr+Token in config..."
+    if checkVaultTokenValid # Check config's variables
+    then
+      echo -e "\t\tzfsUnlocker config token is valid. Continuing..."
+      return
+    else
+      unset VAULT_TOKEN
+    fi
+  fi
+
+  evalCmdline # Set variables from /proc/cmdline
+
+  if [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ]
+  then
+    echo -e "\n\t\tTesting cmdline token..."
+    if checkVaultTokenValid
+    then
+      return
+    else
+      unset VAULT_TOKEN
+    fi
+  fi
+
+    # Check for an approle role_id and secret_id in kernel arguments to try.
+  if [ -n "${role_id}" ] && [ -n "${secret_id}" ]
+  then
+    echo -e "\n\t\tTesting cmdline approle..."
+    getTokenFromApprole
+    if [ -n "${VAULT_TOKEN}" ] && checkVaultTokenValid
+      then
+        echo -e "\t\tValid token set from Approle"
+        lockdownCmdline
+        return
+      else
+        echo -e "\t\tUnable to set token from Approle"
+    fi
+  fi
+
+
+  kernelArgumentSpiel
 }
 
 function hook {
@@ -101,43 +240,23 @@ function hook {
     return 1
   fi
 
-    # Check for kernel argument overrides and use them if available.
-  if [ -n "${VAULTHOSTOVERRIDE:-${VAULT_ADDR}}${VAULTTOKENOVERRIDE:-${VAULT_TOKEN}}" ]
-  then
-    echo -e "\t\tCustom vault args provided in kernel arguments, using those..."
-    if [ -n "${VAULTHOSTOVERRIDE:-${VAULT_ADDR}}"   ]
-    then
-      vaultHost=${VAULTHOSTOVERRIDE:-${VAULT_ADDR}}
-      echo -e "\t\tSet from cmdline: VAULT_ADDR"
-    fi
-    if [ -n "${VAULTTOKENOVERRIDE:-${VAULT_TOKEN}}" ]
-    then
-      vaultToken=${VAULTTOKENOVERRIDE:-${VAULT_TOKEN}}
-      echo -e "\t\tSet from cmdline: VAULT_TOKEN"
-    fi
-    chmod 440 /proc/cmdline # Best effort protection from regular processes
-    echo -e "\t\t/proc/cmdline permissions switched to 440 to help protect token."
-  fi
 
-  if [ ${vaultPromptForMissingInfo} -eq 1 ] && [ -z "${vaultToken}" -o -z "${vaultHost}" ]
+  prepare # Enumerate options and cmdline looking for a valid token.
+  
+  if [ ${vaultPromptForMissingInfo} -eq 1 ] && [ -z "${VAULT_ADDR}" -o -z "${VAULT_TOKEN}" ]
   then
     echo -e "\t\tUnable to determine Vault details and prompting is enabled."
-    [ -z "${vaultToken}" ] && read -sp "Vault Token:" vaultToken
-    [ -z "${vaultHost}" ]  && read -sp "Vault Host:" vaultHost
+    [ -z "${VAULT_ADDR}" ] && read -sp "Vault Host:"  VAULT_ADDR
+    [ -z "${VAULT_ADDR}" ] && read -sp "Vault Token:" VAULT_TOKEN
   fi
 
-  if [ -z "${vaultToken}" ] || [ -z "${vaultHost}"  ]
+  if [ -z "${VAULT_ADDR}" ] || [ -z "${VAULT_TOKEN}"  ]
   then
     echo -e "\t\tNot enough info to run vault hook"
-    [ -z "${vaultHost}" ]  && echo -e "\t\tVault host missing"
-    [ -z "${vaultToken}" ] && echo -e "\t\tVault token missing"
-    kernelArgumentSpiel
+    [ -z "${VAULT_ADDR}" ]  && echo -e "\t\tVault host missing"
+    [ -z "${VAULT_TOKEN}" ] && echo -e "\t\tVault token missing"
     return 1
   fi
-
-  baseURL="https://${vaultHost}/v1"
-
-  checkVaultTokenValid || exit 1
 
     # Try unlocking all datasets with an 'unavailable' keystatus, but root first.
 
@@ -154,14 +273,12 @@ function hook {
       # If unlocked and not a test run, skip
     grep -qsP '\tavailable' <<< $(zfs get -H -o name,value keystatus ${lockedDataset} 2>/dev/null) && [ -z "${testDataset}" ] && continue
 
-    echo -e "\n\t\tUnlocking ${lockedDataset}"
-    [ -n "${testDataset}" ] && echo -e "\t\tAttempting unlock of: ${lockedDataset}"
-
-    attemptVaultRead || exit 1
+    echo -e "\t\tAttempting unlock of: ${lockedDataset}"
+    attemptVaultRead 
     vaultPassphraseResult="$(jq -e -r '.data.data.passphrase' <<< ${response})" ; jqParseExitCode=$?
     [ ${jqParseExitCode} -gt 0 ] && { echo -e "\t\tFailed to read a passphrase from the result" ; exit 1 ;}
 
-    [ -n "${testDataset}" ] && echo -e "\t\tPassphrase of $(wc -m <<<"${vaultPassphraseResult}") length found for ${testDataset}"
+    echo -e "\t\t\tPassphrase found for ${testDataset}"
 
     if result=$(yes "${vaultPassphraseResult}" | zfs load-key ${lockedDataset} 2>&1)
     then
@@ -188,12 +305,11 @@ function cleanup {
 if [ "${1}" == 'test' ]
 then
   echo "Entering test mode."
-  echo "Reading existing /proc/cmdline arguments..."
-  for keyValue in $(</proc/cmdline) ; do eval $keyValue 2>/dev/null ; done
 
   if [ "${2}" ]
   then
-    testDataset=${2} hook
+    testDataset=${2}
+    hook
   else
     echo "Please provide a dataset name as an argument."
   fi
