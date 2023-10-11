@@ -149,7 +149,7 @@ function curler {
   return ${?}
 }
 
-function checkVaultTokenValid {
+function attemptTokenSelfLookup {
     # Do a self-lookup API call before waiting any time
   URL="${VAULT_ADDR}/v1/auth/token/lookup-self"
   curler -method GET -goalText "validate the token" -successText "\t\tAccessing vault [${VAULT_ADDR}] successful, Token valid."
@@ -188,13 +188,16 @@ function lockdownCmdline {
 function tryToken {
   if [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ]
   then  
-    if checkVaultTokenValid # Check config's variables
+    attemptTokenSelfLookup
+    checkReturn=$?
+    if [ ${checkReturn} -eq 0 ]
     then
       echo -e "\t\tToken valid"
-      return
     else
       unset VAULT_TOKEN
     fi
+
+    return ${checkReturn}
   fi
 }
 
@@ -203,7 +206,7 @@ function tryApprole {
   if [ -n "${role_id}" ] && [ -n "${secret_id}" ]
   then
     getTokenFromApprole
-    if [ -n "${VAULT_TOKEN}" ] && checkVaultTokenValid
+    if [ -n "${VAULT_TOKEN}" ] && attemptTokenSelfLookup
       then
         lockdownCmdline
         return
