@@ -1,5 +1,7 @@
-  # List of wireless networks to connect to as comma delimited SSID and PSK combinations.
+  # List of wireless networks to connect to as colon-delimited SSID:PSK combinations.
   # If var empty/unset, module skips.
-  # Generate PSKs using wpa_passphrase command.
+  # You can generate network PSKs with the wpa_passphrase command
+  # SSID priority is set by the below ordering with the first SSID in the list being
+  # the most preferred to connect with.
 
 #wirelessNetworks=("My AP:pskpskpsk" "Another SSID:pskpskpsk")
