@@ -13,6 +13,13 @@ function mapEthernetDrivers {
       map add_module ${driver}
     fi
   done
+
+  for usbNetworkDevice in /sys/bus/usb/devices/*/net
+  do
+    driver=$(basename $(readlink $(dirname $usbNetworkDevice)/driver))
+    echo -e "\t15_dhcp module: Detected active USB Ethernet driver ${driver}, added to initramfs."
+    map add_module ${driver}
+  done
 }
 
 mapEthernetDrivers
