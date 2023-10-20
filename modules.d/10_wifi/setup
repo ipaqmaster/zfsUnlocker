@@ -23,6 +23,18 @@ function add_wificard {
       echo -e "\tDetected ${iwlwifi_firmware_file} in use, adding to initramfs for next boot."
       map add_file /usr/lib/firmware/iwlwifi-${iwlwifi_firmware_file}*
     done
+
+    pnvmFiles="/usr/lib/firmware/*pnvm*"
+    if [ -n "${pnvmFiles}" ]
+    then
+      echo -e "\tAdding all available PNVM files (Programmable Non-Volatile Memory):"
+
+      for pnvmFile in ${pnvmFiles}
+      do
+        map add_file ${pnvmFile}
+        echo -e "\t\t${pnvmFile}"
+      done
+    fi
   fi
 }
 
