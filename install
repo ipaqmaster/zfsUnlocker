@@ -37,8 +37,7 @@ then
     writeConf=1
     echo "Installing new version, existing conf will be renamed and replaced."
     confBak="${conf}_$(date +%s).bak"
-    $SUDO mv -v "$conf" "$confBak" && \
-    echo -e "${colors[red]}Your ${colors[none]}$conf ${colors[red]}\nhas been moved to ${colors[none]}$confBak\n${colors[red]}please review and copy over your variables before resuming use.${colors[none]}"
+    $SUDO mv -v "$conf" "$confBak"
   fi
 else
   writeConf=1
@@ -84,3 +83,18 @@ $SUDO cp $DIR/zfsUnlocker.install /usr/lib/initcpio/install/zfsUnlocker
 
 find /etc/zfsUnlocker -type f -name 'hook' -exec $SUDO chmod 740 "{}" \;
 
+
+# Append custom variables from previous file.
+if [ -n "${confBak}" ]
+then
+    variableDifferences="$(comm -23 <($SUDO grep -v '^#' "${confBak}" | sort -u) <($SUDO grep -v '^#' "${conf}" | sort -u))"
+    if [ -n "${variableDifferences}" ]
+    then
+      echo -e "${colors[red]}Old ${colors[none]}${conf}${colors[red]} moved to ${colors[none]}${confBak}${colors[red]}.${colors[none]}"
+      echo -e "${colors[red]}The script will attempt to append previously used variables to this new config. Please review the content before continuing.${colors[none]}"
+
+      echo -e "Appending previous config..."
+      echo "# Configuration copied from previous version [$($SUDO head -n1 ${confBak})] [${confBak}]:" | $SUDO tee -a "${conf}"
+      echo "${variableDifferences}" | $SUDO tee -a "${conf}"
+    fi
+fi
