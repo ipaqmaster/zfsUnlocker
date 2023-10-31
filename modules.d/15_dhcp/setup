@@ -16,10 +16,17 @@ function mapEthernetDrivers {
 
   for usbNetworkDevice in /sys/bus/usb/devices/*/net
   do
+    usbNetworkingDetected=1
     driver=$(basename $(readlink $(dirname $usbNetworkDevice)/driver))
     echo -e "\t15_dhcp module: Detected active USB Ethernet driver ${driver}, added to initramfs."
     map add_module ${driver}
   done
+
+  if [ -n "${usbNetworkingDetected}" ]
+  then
+    echo -e "\tIf these USB network devices won't always be present for each initramfs regeneration"
+    echo -e "\tyou may wish to consider adding their modules directly to /etc/mkinitcpio.conf for persistence"
+  fi
 }
 
 mapEthernetDrivers
