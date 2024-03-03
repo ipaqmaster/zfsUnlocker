@@ -56,8 +56,8 @@ zfs_decrypt_fs() {
     [ "$(zfs get -H -o value keystatus "${encryptionroot}")" != "available" ] && echo "Out of options, prompting indefinitely."
     while [ "$(zfs get -H -o value keystatus "${encryptionroot}")" != "available" ]
     do
-      clear
       read -t 30 -s -p "Enter unlock passphrase: " userinput
+      clear
 
       if [ -n "$userinput" ]
       then
