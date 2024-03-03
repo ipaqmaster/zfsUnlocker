@@ -67,7 +67,7 @@ function hook {
     do
       bondInc=0
       while [ -h /sys/class/net/bond${bondInc} ]; do (((bondInc++))); done # Be courteous of any other early bond interfaces
-      ourBondInterfaces+="bond${bondInc} "
+      ourBondInterfaces+=(bond${bondInc})
       ip link add bond${bondInc} type bond miimon 100 mode 802.3ad
       ip link set bond${bondInc} up
       for link in ${peers[${peer}]}
@@ -81,7 +81,7 @@ function hook {
 }
 
 function cleanup {
-  for bond in ${ourBondInterfaces}
+  for bond in ${ourBondInterfaces[*]}
   do
     ip link del ${bond}
   done
