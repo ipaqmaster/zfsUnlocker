@@ -220,13 +220,35 @@ function tryApprole {
 
 function prepare {
 
-  [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ] && echo -e "\n\t\tTesting config token..."    &&  tryToken   && return
-  [ -n "${role_id}" ]    && [ -n "${secret_id}" ]   && echo -e "\n\t\tTesting config approle..."  &&  tryApprole && return
+  if [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ]
+  then
+      echo -e "\n\t\tTesting config token..."
+      tryToken
+      return $?
+  fi
+
+  if [ -n "${role_id}" ] && [ -n "${secret_id}" ]
+  then
+    echo -e "\n\t\tTesting config approle..."
+    tryApprole
+  return $?
+  fi
 
   evalCmdline # Set variables from /proc/cmdline
 
-  [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ] && echo -e "\n\t\tTesting cmdline token..."   &&  tryToken   && return
-  [ -n "${role_id}" ]    && [ -n "${secret_id}" ]   && echo -e "\n\t\tTesting cmdline approle..." &&  tryApprole && return
+  if [ -n "${VAULT_ADDR}" ] && [ -n "${VAULT_TOKEN}" ]
+  then
+    echo -e "\n\t\tTesting cmdline token..."
+    tryToken
+    return $?
+  fi
+
+  if [ -n "${role_id}" ] && [ -n "${secret_id}" ]
+  then
+    echo -e "\n\t\tTesting cmdline approle..."
+    tryApprole
+    return $?
+  fi
 
   kernelArgumentSpiel
 }
