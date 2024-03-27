@@ -139,6 +139,7 @@ function curler {
     response="$(curl -q -sS ${METHOD} -H "${TokenHeader}" "${URL}" "${postdata[@]}" 2>&1)" ; curlReturnCode=$?
     if [ "${response}" == "${sealedError}" ]
     then
+      # Only print this text once.
       [ ${attemptNumber} -eq 1 ] && echo -e "\t\tHit sealed vault... retrying" >&2
     else
       break
