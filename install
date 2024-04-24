@@ -53,7 +53,7 @@ fi
 
 echo "Evaluating module package dependencies"
 moduleBasedir="/etc/zfsUnlocker/modules.d"
-modules="$(ls -1 $moduleBasedir| grep -v disabled)" 
+modules="$(ls -1v $moduleBasedir| grep -v disabled)" 
 
 # We need 'which'
 which -v >/dev/null 2>&1 || yes | sudo pacman -S which
