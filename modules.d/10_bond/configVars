@@ -2,7 +2,3 @@
 createBonds=0
   # LACP PDUs are sent every 30 seconds as most.
 tcpdumpTimeout=35
-
-  # If we need to create one or more VLAN interfaces on the bond before running a dhcp
-  # client on it they can be defined here.
-#bondVlans=(2 4 6 8)

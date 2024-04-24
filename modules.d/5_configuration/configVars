@@ -1,0 +1,3 @@
+  # If we need to access one or more VLAN interfaces to access the world
+  # they can be defined here.
+#Vlans=(2 4 6 8)

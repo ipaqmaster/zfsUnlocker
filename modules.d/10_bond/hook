@@ -81,10 +81,10 @@ function hook {
 
       # If VLANs are configured, create them per bond interface.
       # This might be better as a standalone hook applicable to all interfaces.
-      if [ -n "${bondVlans}" ]
+      if [ -n "${Vlans}" ]
       then
         sleep 1 # Wait for bond interface creation.
-        for vlan in ${bondVlans[*]}
+        for vlan in ${Vlans[*]}
         do
           ip link add link bond${bondInc} name bond${bondInc}.${vlan} type vlan id ${vlan}
           ip link set bond${bondInc}.${vlan} up
