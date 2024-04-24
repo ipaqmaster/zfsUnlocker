@@ -60,7 +60,6 @@ zfs_decrypt_fs() {
     while [ "$(zfs get -H -o value keystatus "${encryptionroot}")" != "available" ]
     do
       read -t 30 -s -p "Enter unlock passphrase: " userinput
-      clear
 
       if [ -n "$userinput" ]
       then
