@@ -72,7 +72,10 @@ zfs_decrypt_fs() {
       # If we make it to a mountable root, run the cleanup functions of our hook modules before we get there.
     for module in $moduleList
     do
-      ${moduleBasepath}/${module}/hook cleanup
+      if [ -f ${moduleBasepath}/${module}/hook ]
+      then
+        ${moduleBasepath}/${module}/hook cleanup
+      fi
     done
 
 
