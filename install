@@ -70,14 +70,16 @@ do
       pacman -Q $packageDependency || yes | sudo pacman --noconfirm -S "$packageDependency"
     done < ${moduleBasedir}/${module}/packageDependencies
   fi
+
+  if [ -n "$writeConf" ]
+  then
+    echo "#${module}" | $SUDO tee -a "${conf}" > /dev/null
+    cat ${moduleBasedir}/${module}/configVars | $SUDO tee -a "${conf}" > /dev/null
+    echo "" | $SUDO tee -a "${conf}" # spacer
+  fi
+  
 done
 
-if [ -n "$writeConf" ]
-then
-  echo "#${module}" | $SUDO tee -a "${conf}" > /dev/null
-  cat ${moduleBasedir}/${module}/configVars | $SUDO tee -a "${conf}" > /dev/null
-  echo "" | $SUDO tee -a "${conf}" # spacer
-fi
  
   
 
