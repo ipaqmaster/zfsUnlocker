@@ -14,7 +14,7 @@ function mapEthernetDrivers {
     fi
   done
 
-  for usbNetworkDevice in /sys/bus/usb/devices/*/net
+  for usbNetworkDevice in $(find /sys/bus/usb/devices/*/net -mindepth 1 -maxdepth 1 2>/dev/null)
   do
     usbNetworkingDetected=1
     driver=$(basename $(readlink $(dirname $usbNetworkDevice)/driver))
