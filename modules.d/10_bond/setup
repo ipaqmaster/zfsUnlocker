@@ -5,4 +5,5 @@ map add_binary grep \
                ip
 
 map add_module bonding \
-               tls
+               tls \
+               8021q

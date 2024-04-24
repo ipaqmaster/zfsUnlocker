@@ -70,27 +70,17 @@ function hook {
       ourBondInterfaces+=(bond${bondInc})
       ip link add bond${bondInc} type bond miimon 100 mode 802.3ad
       ip link set bond${bondInc} up
-      echo -e "\t\t${link} bonded."
-
+      echo "Sleeping before adding vid 10..."
+      sleep 5
+      ip link add link bond${bondInc} name bond${bondInc}.10 type vlan id 10
+      ip link set bond${bondInc}.10 up
       for link in ${peers[${peer}]}
       do
         ip link set ${link} master bond${bondInc}
         echo -e "\t\t${link} bonded and ready"
       done
-
-
-      # If VLANs are configured, create them per bond interface.
-      # This might be better as a standalone hook applicable to all interfaces.
-      if [ -n "${bondVlans}" ]
-      then
-        sleep 1 # Wait for bond interface creation.
-        for vlan in ${bondVlans[*]}
-        do
-          ip link add link bond${bondInc} name bond${bondInc}.${vlan} type vlan id ${vlan}
-          ip link set bond${bondInc}.${vlan} up
-        done
-      fi
     done
+
   fi
 }
 
