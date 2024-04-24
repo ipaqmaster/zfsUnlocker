@@ -49,7 +49,10 @@ zfs_decrypt_fs() {
       [ "$(zfs get -H -o value keystatus "${encryptionroot}")" = "available" ] && break
       echo "" # spacer
       echo -e "\t[${module}]"
-      ${moduleBasepath}/${module}/hook hook
+      if [ -d ${moduleBasepath}/${module}/hook ]
+      then
+        ${moduleBasepath}/${module}/hook hook
+      fi
     done
 
       # When out of options, loop indefinitely on a password prompt.
