@@ -36,6 +36,8 @@ mapEthernetDrivers
 map add_binary dhclient \
                grep
 
+map add_module 8021q
+
 map add_file   /sbin/dhclient-script
 
   # Use the machine's hostname if available for dhclient.

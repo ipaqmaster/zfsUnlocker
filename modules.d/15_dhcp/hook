@@ -15,8 +15,20 @@ function hook {
       intbasename=$(basename $interface)
       [ ! -h ${interface} ]      && continue # Ignore non-symlinks
       [ -h ${interface}/master ] && continue # Ignore non-master links
+
       echo -e "\t\tAdded to dhclient interface list: ${intbasename}"
       echo "interface\"${intbasename}\" {}" >> /etc/dhclient.conf
+
+      if [ -n "${Vlans[*]}" ]
+      then
+        for vlan in ${Vlans[*]}
+        do
+          vlanIntName="${intbasename}.${vlan}"
+          ip link add link ${intbasename} ${vlanIntName} type vlan id ${vlan} && \
+          echo -e "\t\t\tCreated and added vlan interface: ${vlanIntName}"
+          echo "interface\"${vlanIntName}\" {}" >> /etc/dhclient.conf
+        done
+      fi
 
     done
     echo ""
