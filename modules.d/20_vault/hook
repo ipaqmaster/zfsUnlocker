@@ -85,8 +85,14 @@ function curlErrorHandler {
     echo -e "\t\tcURL threw an error trying to ${goalText} against ${VAULT_ADDR}"
     echo
     sed -E -e 's/^/\t\t\t/g' <<< "${response}" # Share cURL's output
+  elif [[ "${response}" =~ \<title\>[0-9]{3} ]] # If a general upstream error occured
+  then
+    echo -e "\t\tA HTTP error was thrown by the remote trying to ${goalText} against ${VAULT_ADDR}"
+    echo
+    sed -E -e 's/^/\t\t\t/g' <<< "${response}" # Share cURL's output
   else # If we don't know what we're looking at
     echo -e "\t\tSomething else went wrong trying to ${goalText} against ${VAULT_ADDR} [cURL exit code ${curlReturnCode}]"
+    sed -E -e 's/^/\t\t\t/g' <<< "${response}" # Share cURL's output
     echo ${response}
   fi
 
