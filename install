@@ -60,22 +60,26 @@ which -v >/dev/null 2>&1 || yes | sudo pacman -S which
 
 for module in $modules
 do
-  echo "${module}:"
-  while read packageDependency
-  do
-    echo -ne '\t'
-    pacman -Q $packageDependency || yes | sudo pacman --noconfirm -S "$packageDependency"
-  done < ${moduleBasedir}/${module}/packageDependencies
 
-  if [ -n "$writeConf" ]
+  if [ -f ${moduleBasedir}/${module}/packageDependencies ]
   then
-    echo "#${module}" | $SUDO tee -a "${conf}" > /dev/null
-    cat ${moduleBasedir}/${module}/configVars | $SUDO tee -a "${conf}" > /dev/null
-    echo "" | $SUDO tee -a "${conf}" # spacer
+    echo "${module}:"
+    while read packageDependency
+    do
+      echo -ne '\t'
+      pacman -Q $packageDependency || yes | sudo pacman --noconfirm -S "$packageDependency"
+    done < ${moduleBasedir}/${module}/packageDependencies
   fi
+done
+
+if [ -n "$writeConf" ]
+then
+  echo "#${module}" | $SUDO tee -a "${conf}" > /dev/null
+  cat ${moduleBasedir}/${module}/configVars | $SUDO tee -a "${conf}" > /dev/null
+  echo "" | $SUDO tee -a "${conf}" # spacer
+fi
  
   
-done
 
 $SUDO cp $DIR/zfsUnlocker.hook    /usr/lib/initcpio/hooks/zfsUnlocker
 $SUDO cp $DIR/zfsUnlocker.install /usr/lib/initcpio/install/zfsUnlocker
