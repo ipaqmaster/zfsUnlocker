@@ -35,7 +35,7 @@ function hook {
 
   # Build configuration
 
-  priorityCounter=1 # Assign priorities to SSIDs where the first specified is the highest priority.
+  priorityCounter=0 # Assign priorities to SSIDs where the first specified is the highest priority.
   for wirelessInterface in $wirelessInterfaces ; do interfaceArgs+="-i $wirelessInterface " ; done
   for network in ${!wirelessNetworks[@]}
   do
