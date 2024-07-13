@@ -1,0 +1,7 @@
+map add_binary mount \
+               umount \
+               cat \
+               yes
+
+map add_module fat \
+               vfat

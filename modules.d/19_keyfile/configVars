@@ -1,0 +1,6 @@
+# A UUID of a partition we can mount and a passphrase text file path on said mount
+# For reading out one or more passphrase lines from external storage.
+# Currently adds only the fat and vfat kernel modules.
+# More can be supported by adding their modules to your initramfs.
+PART_UUID=''
+PASSPHRASE_FILE_PATH='passphrase.txt'

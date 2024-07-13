@@ -1,0 +1,34 @@
+#!/bin/bash
+
+function hook {
+
+  if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
+  then
+    . /etc/zfsUnlocker/zfsUnlocker.conf
+  else
+    echo "\t\t/etc/zfsUnlocker/zfsUnlocker.conf missing, skipping module."
+    return 1
+  fi
+
+  if [ -z "${PART_UUID}" ] || [ -z "${PASSPHRASE_FILE_PATH}" ]
+  then
+    echo -e "\tPART_UUID or PASSPHRASE_FILE_PATH not set. Skipping module."
+    return 1
+  fi
+
+  mkdir /keyFileMount
+  mount /dev/disk/by-partuuid/${PART_UUID} /keyFileMount 
+
+  # Try all passphrase lines in the text file
+  while read line
+  do
+    yes "${line}" | zfs load-key -a
+  done <<< "$(cat "/keyFileMount/${PASSPHRASE_FILE_PATH}")"
+}
+
+function cleanup {
+  umount /keyFileMount
+  rmdir  /keyFileMount
+}
+
+${1}
