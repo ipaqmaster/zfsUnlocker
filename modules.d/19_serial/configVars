@@ -1,0 +1,2 @@
+# Whether or not we should listen to serial interfaces to receive a potentially valid passphrase
+askPassphraseOnSerial=1

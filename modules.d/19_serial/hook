@@ -1,0 +1,41 @@
+#!/bin/bash
+
+function hook {
+  . /etc/zfsUnlocker/zfsUnlocker.conf
+
+  if [ ${askPassphraseOnSerial} -eq 1 ]
+  then
+    echo -e "\t\tListening to serial interfaces for a passphrase..."
+    validSerialInterfaceIndex=$(awk -F':' '/uart:[0-9]/{ print $1 }' /proc/tty/driver/serial)
+
+    if [ -n "${validSerialInterfaceIndex}" ]
+    then
+
+      # Print out to each serial interface that we are accepting input
+      for serialIndex in ${validSerialInterfaceIndex}
+      do
+        echo -e "[zfsUnlocker]" >/dev/ttyS${serialIndex}
+        echo -e "Listening on all ttyS* interfaces for an unlock passphrase." > /dev/ttyS${serialIndex}
+        echo -e "Type a passphrase on serial and press Enter to submit:"      > /dev/ttyS${serialIndex}
+      done
+
+      # Enter main loop of pestering serial interfaces for a passphrase
+      # This could be implemented better.
+      cat /dev/ttyS* | \
+        while read passphraseLine
+        do
+          echo "${passphraseLine}" | zfs load-key -a
+        done &
+    fi
+
+  else
+    echo -e "\t\tIgnoring serial interfaces..."
+  fi
+
+}
+
+function cleanup {
+  pkill -HUP cat
+}
+
+$1

@@ -1,0 +1,2 @@
+map add_binary awk \
+               cat
