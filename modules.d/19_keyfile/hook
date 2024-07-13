@@ -12,17 +12,29 @@ function hook {
 
   if [ -z "${PART_UUID}" ] || [ -z "${PASSPHRASE_FILE_PATH}" ]
   then
-    echo -e "\tPART_UUID or PASSPHRASE_FILE_PATH not set. Skipping module."
+    echo -e "\t\tPART_UUID or PASSPHRASE_FILE_PATH not set. Skipping module."
     return 1
   fi
 
-  mkdir /keyFileMount
-  mount /dev/disk/by-partuuid/${PART_UUID} /keyFileMount 
+  mkdir -p /keyFileMount
+  set -o pipefail
+  if ! mount /dev/disk/by-partuuid/${PART_UUID} /keyFileMount 2>&1 | sed -E -e 's/^/\t\t/g'
+  then
+    echo -e "\t\tFailed to mount the desired partition UUID."
+    return 1
+  fi
+  set +o pipefail
+
+  if ! [ -f "/keyFileMount/${PASSPHRASE_FILE_PATH}" ]
+  then
+    echo -e "\t\tKeyfile ${PASSPHRASE_FILE_PATH} not found on the mounted filesystem."
+    return 1
+  fi
 
   # Try all passphrase lines in the text file
   while read line
   do
-    yes "${line}" | zfs load-key -a
+    yes "${line}" | zfs load-key -a 2>&1 | sed -E -e 's/^/\t\t/g'
   done <<< "$(cat "/keyFileMount/${PASSPHRASE_FILE_PATH}")"
 }
 
