@@ -45,7 +45,6 @@ function hook {
 }
 
 function cleanup {
-  set -x
   # Release the lease
   dhclient -r >/dev/null 2>&1
 
