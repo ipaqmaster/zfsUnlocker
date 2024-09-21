@@ -17,7 +17,17 @@ function mapEthernetDrivers {
   for usbNetworkDevice in $(find /sys/bus/usb/devices/*/net -mindepth 1 -maxdepth 1 2>/dev/null)
   do
     usbNetworkingDetected=1
-    driver=$(basename $(readlink ${usbNetworkDevice}/device/driver))
+
+    # Try to determine the driver in use.
+    [ -h "${usbNetworkDevice}/device/driver" ] && driver=$(basename $(readlink ${usbNetworkDevice}/device/driver))
+
+    if [ -z "${driver}" ]
+    then
+      echo "Failed to discover its driver..."
+      continue
+    fi
+
+    echo driver is :${driver}:
     echo -e "\t15_dhcp module: Detected active USB Ethernet driver ${driver}, added to initramfs."
     map add_module ${driver}
     . /etc/mkinitcpio.conf
