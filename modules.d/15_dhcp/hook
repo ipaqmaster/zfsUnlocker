@@ -1,16 +1,14 @@
 #!/bin/bash
+# Read the global Vlans variable
+if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
+then
+  . /etc/zfsUnlocker/zfsUnlocker.conf
+fi
 
 function hook {
-  if [ -f /etc/zfsUnlocker/zfsUnlocker.conf ]
-  then
-    . /etc/zfsUnlocker/zfsUnlocker.conf
-  fi
-
-  echo -e "\t\tGetting an IP..."
-
   # Figure out if there are any interfaces with a master who shouldn't be directly DHCP'd on.
 
-  for interface in /sys/class/net/*
+  for interface in $(find /sys/class/net/ -type l -not -name '*.*' -not -name lo)
     do
       intbasename=$(basename $interface)
       [ ! -h ${interface} ]      && continue # Ignore non-symlinks
@@ -24,7 +22,6 @@ function hook {
         for vlan in ${Vlans[*]}
         do
           vlanIntName="${intbasename}.${vlan}"
-          createdVlanInterfaces+=(${vlanIntName})
           ip link add link ${intbasename} ${vlanIntName} type vlan id ${vlan} && \
           echo -e "\t\t\tCreated and added vlan interface: ${vlanIntName}"
           echo "interface\"${vlanIntName}\" {}" >> /etc/dhclient.conf
@@ -48,14 +45,23 @@ function hook {
 }
 
 function cleanup {
-    # Release the lease
+  set -x
+  # Release the lease
   dhclient -r >/dev/null 2>&1
 
-    # Delete any virtual interfaces we created.
-  for vlanInterface in ${createdVlanInterfaces}
-  do
-    ip link del "${vlanInterface}"
-  done
+
+  if [ -n "${Vlans[*]}" ]
+  then
+    for interface in $(find /sys/class/net/ -type l -not -name '*.*' -not -name lo)
+    do
+      intbasename=$(basename $interface)
+      for vlan in ${Vlans[*]}
+      do
+        vlanIntName="${intbasename}.${vlan}"
+        ip link del ${vlanIntName} && echo "Deleting Vlan interface: ${vlanIntName}"
+      done
+    done
+  fi
 }
 
 $1
