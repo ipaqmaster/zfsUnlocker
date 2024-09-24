@@ -306,7 +306,7 @@ function hook {
     vaultPassphraseResult="$(jq -e -r '.data.data.passphrase' <<< ${response})" ; jqParseExitCode=$?
     [ ${jqParseExitCode} -gt 0 ] && { echo -e "\t\tFailed to read a passphrase from the result" ; exit 1 ;}
 
-    echo -e "\t\t\tPassphrase found for ${testDataset}"
+    echo -e "\t\t\tPassphrase found for ${lockedDataset}"
 
     if result=$(yes "${vaultPassphraseResult}" | zfs load-key ${lockedDataset} 2>&1)
     then
