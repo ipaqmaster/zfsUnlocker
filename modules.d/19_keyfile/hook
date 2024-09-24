@@ -39,8 +39,11 @@ function hook {
 }
 
 function cleanup {
-  umount /keyFileMount
-  rmdir  /keyFileMount
+  if grep -qs keyFileMount /proc/mounts
+  then
+    umount    /keyFileMount
+    rmdir -p  /keyFileMount
+  fi
 }
 
 ${1}
