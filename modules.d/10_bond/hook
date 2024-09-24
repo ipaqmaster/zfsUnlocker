@@ -100,7 +100,7 @@ function hook {
 function cleanup {
   # We cannot access ${ourBondInterfaces} here set by the main hook.
   # Lazily remove all numbered bond interfaces (This may not be a good idea for certain configurations)
-  for bondInterface in /sys/class/net/bond*[0-9]
+  for bondInterface in $(find /sys/class/net -mindepth 1 -maxdepth 1 -name bond[0-9] -printf '%f\n')
   do
     bondInterfaceBasename="$(basename ${bondInterface})"
     echo "Removing bond link: ${bondInterfaceBasename}"
