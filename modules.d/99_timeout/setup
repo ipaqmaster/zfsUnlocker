@@ -1,0 +1,9 @@
+map add_binary grep \
+               tr   \
+               timeout \
+               tcpdump \
+               ip
+
+map add_module bonding \
+               tls \
+               8021q

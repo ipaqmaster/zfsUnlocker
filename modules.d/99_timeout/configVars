@@ -1,0 +1,3 @@
+  # To avoid dead end remote scenarios,
+  # reboot after this many seconds of not being unlocked
+timeoutSeconds=300
