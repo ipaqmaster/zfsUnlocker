@@ -6,32 +6,50 @@ function hook {
   if [ ${askPassphraseOnSerial} -eq 1 ]
   then
     echo -e "\t\tListening to serial interfaces for a passphrase..."
-    validSerialInterfaceIndex=$(awk -F':' '/uart:[0-9]/{ print $1 }' /proc/tty/driver/serial)
 
-    if [ -n "${validSerialInterfaceIndex}" ]
+    # Find valid serial interfaces
+    serialInterfaces=($(awk -F':' '/uart:[0-9]/{ print "/dev/ttyS"$1 }' /proc/tty/driver/serial))
+
+    # Include any ttyUSB* or ttyACM* serial interfaces too.
+    serialInterfaces+=($(find /dev \( -name 'ttyUSB*' -or -name 'ttyACM*' \) -printf '%f '))
+
+    # If the kernel argument console= has been used try to exclude that serial interface from this hook as it will already be prompting for a passphrase directly.
+    for arg in $(</proc/cmdline)
+    do
+      case "${arg}" in
+        console=*)
+          #consoleSerialInterface=$(cut -d= -f2 <<< "${arg}")
+          consoleSerialInterface="${arg/*=/}"
+          # Rebuild the array of serial interfaces attempting to remove the match.
+          serialInterfacesNew=()
+          for serialInterface in ${serialInterfaces[*]}
+          do
+            [[ ! "$serialInterface" == *"${consoleSerialInterface}"* ]] && serialInterfacesNew+=(${serialInterface})
+          done
+          serialInterfaces=(${serialInterfacesNew[*]})
+          ;;
+      esac
+    done
+
+    if [ -n "${serialInterfaces}" ]
     then
+      echo -e "\t\tRelevant serial interfaces: ${serialInterfaces[*]}"
 
-      # Print out to each serial interface that we are accepting input
-      for serialIndex in ${validSerialInterfaceIndex}
+      # Print information to each serial interface and begin listening for passphrases on them.
+      for serialInterface in ${serialInterfaces[*]}
       do
-        echo -e "[zfsUnlocker]" >/dev/ttyS${serialIndex}
-        echo -e "Listening on all ttyS* interfaces for an unlock passphrase." > /dev/ttyS${serialIndex}
-        echo -e "Type a passphrase on serial and press Enter to submit:"      > /dev/ttyS${serialIndex}
+        echo -e  "[zfsUnlocker]" >${serialInterface}
+        echo -e  "\t\tListening on all ttyS* interfaces for an unlock passphrase." > ${serialInterface}
+        echo -en "\t\tType a passphrase on serial and press Enter to submit:"      > ${serialInterface}
+        cat ${serialInterface} | while read serialPassphrase ; do zfs load-key -a <<< "${serialPassphrase}" 2>&1 > ${serialInterface} ; done &
       done
 
-      # Enter main loop of pestering serial interfaces for a passphrase
-      # This could be implemented better.
-      cat /dev/ttyS* | \
-        while read passphraseLine
-        do
-          echo "${passphraseLine}" | zfs load-key -a
-        done &
+    else
+      echo -e '\t\tNo free serial interfaces found. Skipping hook.'
     fi
-
   else
-    echo -e "\t\tIgnoring serial interfaces..."
+    echo -e "\t\tModule not enabled."
   fi
-
 }
 
 function cleanup {
