@@ -42,7 +42,7 @@ zfs_decrypt_fs() {
 
       # Try zfsUnlocker's modules.d hooks in order
     moduleBasepath="/etc/zfsUnlocker/modules.d"
-    moduleList="$(ls -1 ${moduleBasepath} | grep -v disabled)"
+    moduleList="$(ls -1 -v ${moduleBasepath} | grep -v disabled)"
 
     for module in $moduleList
     do
