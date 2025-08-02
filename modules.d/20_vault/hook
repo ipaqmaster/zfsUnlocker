@@ -292,7 +292,7 @@ function hook {
   then 
     lockedDatasets="${testDataset}"
   else
-    lockedDatasets="${dataset} $(zfs get -H -o name,value keystatus 2>/dev/null | grep unavailable | grep -v '@' | cut -f1)"
+    lockedDatasets="${dataset} $(zfs get -t filesystem -H -o name,value keystatus 2>/dev/null | grep unavailable | grep -v '@' | cut -f1)"
   fi
 
   for lockedDataset in ${lockedDatasets}
