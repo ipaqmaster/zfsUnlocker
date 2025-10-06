@@ -50,6 +50,8 @@ The script tries stored vault tokens first and if unsuccessful looks to the kern
 
 If kernel arguments are used the script attempts to protect them by changing the permissions on `/proc/cmdline`.
 
+When using kernel arguments to drive the script I also recommend changing your EFI mount's fstab entry to include umask=0077 so regular users can't read your `<EFI>/loader/entries/*.conf` files to obtain the host's vault credentials.
+
 ## Hashicorp Vault setup example
 
 Examples assuming a ZFS rootfs system consisting of a zpool named after its shortname and a natively encrypted dataset 'root' (computer-name/root)
