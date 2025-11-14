@@ -6,6 +6,7 @@ vaultKvEngineName='kv'                  # default when enabling a kv engine.
 vaultRootSearchPath=data/zfs            # path in KvEngine to find keys.
 vaultKeyName=passphrase                 # What field you're after in a kv result
 vaultPromptForMissingInfo=0             # Prompt on the command line if missing a token or URL from other sources?
+method_path=approle                     # For supporting different approle paths. e.g. a approle_mfa/ method for hosts which have MFA enforced.
 
 # [Example] For an encrypted root dataset named 'root' on zpool 'myPool'
 #           as 'myPool/root'

@@ -183,14 +183,26 @@ function attemptVaultRead {
 }
 
 function getTokenFromApprole {
-  URL="${VAULT_ADDR}/v1/auth/approle/login"
-  curler -goalText "get token from approle" -successText "\t\t\tSuccessfully got token from approle" -postdata "{\"role_id\": \"${role_id}\", \"secret_id\":\"${secret_id}\"}"
+  URL="${VAULT_ADDR}/v1/auth/${method_path}/login"
+  curler -goalText "get token from ${method_path}" -successText "\t\t\tSuccessfully got token from ${method_path}" -postdata "{\"role_id\": \"${role_id}\", \"secret_id\":\"${secret_id}\"}"
+
+  # If we need to do MFA, report to the /validate endpoint next.
+  if [[ "${response}" =~ 'validate the login' ]]
+  then
+    echo -e "\t\tNeed to validate with MFA..."
+    #mfa_request_id="$(jq -r .request_id <<< ${response})"
+    mfa_request_id="$(jq -r '.auth.mfa_requirement.mfa_request_id' <<< ${response})"
+     mfa_method_id="$(jq -r '.auth.mfa_requirement.mfa_constraints[].any[].id' <<< ${response})"
+    URL="${VAULT_ADDR}/v1/sys/mfa/validate"
+    echo -e "\t\tAttempting MFA validation..."
+    curler -goalText "get token from ${method_path}" -successText "\t\t\tSuccessfully got token from ${method_path}" -postdata "{\"mfa_request_id\": \"${mfa_request_id}\", \"mfa_payload\": {\"${mfa_method_id}\": []}}"
+  fi
 
   if VAULT_TOKEN=$(jq -e -r .auth.client_token <<< "${response}")
   then
     echo -e "\t\tGot a vault token successfully..."
   else
-    echo -e "\t\tFailed to get a vault token, check approle"
+    echo -e "\t\tFailed to get a vault token, check ${method_path}"
     exit 1
   fi
 }
@@ -248,7 +260,7 @@ function prepare {
 
   if [ -n "${role_id}" ] && [ -n "${secret_id}" ]
   then
-    echo -e "\n\t\tTesting config approle..."
+    echo -e "\n\t\tTesting config ${method_path}..."
     tryApprole
   return $?
   fi
@@ -264,7 +276,7 @@ function prepare {
 
   if [ -n "${role_id}" ] && [ -n "${secret_id}" ]
   then
-    echo -e "\n\t\tTesting cmdline approle..."
+    echo -e "\n\t\tTesting cmdline ${method_path}..."
     tryApprole
     return $?
   fi
