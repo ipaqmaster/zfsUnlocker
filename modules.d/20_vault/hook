@@ -21,27 +21,40 @@ function evalCmdline {
     case "$(tr '[:upper:]' '[:lower:]' <<< ${param})" in
   
       vault_addr)
-        export VAULT_ADDR="${value}"
-        setFromCmdline+=(VAULT_ADDR)
-        lockdownCmdline
+        if [ -z "${VAULT_ADDR}" ]
+        then
+          export VAULT_ADDR="${value}"
+          setFromCmdline+=(VAULT_ADDR)
+          lockdownCmdline
+        fi
         ;;
   
       vault_token)
-        export VAULT_TOKEN="${value}"
-        setFromCmdline+=(VAULT_TOKEN)
-        lockdownCmdline
+        if [ -z "${VAULT_TOKEN}" ]
+        then
+          export VAULT_TOKEN="${value}"
+          setFromCmdline+=(VAULT_TOKEN)
+          lockdownCmdline
+        fi
         ;;
   
       role_id)
-        export role_id="${value}"
-        setFromCmdline+=(role_id)
-        lockdownCmdline
+        echo role id is ${role_id}
+        if [ -z "${role_id}" ]
+        then
+          export role_id="${value}"
+          setFromCmdline+=(role_id)
+          lockdownCmdline
+        fi
         ;;
   
       secret_id)
-        export secret_id="${value}"
-        setFromCmdline+=(secret_id)
-        lockdownCmdline
+        if [ -z "${secret_id}" ]
+        then
+          export secret_id="${value}"
+          setFromCmdline+=(secret_id)
+          lockdownCmdline
+        fi
         ;;
     esac
   done
